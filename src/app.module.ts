@@ -9,7 +9,6 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { redisStore } from 'cache-manager-redis-store';
 import databaseConfig from './config/database.config';
 import redisConfig from './config/redis.config';
-import keycloakConfig from './config/keycloak.config';
 import jwtConfig from './config/jwt.config';
 import appConfig from './config/app.config';
 import { User } from './users/entities/user.entity';
@@ -41,12 +40,14 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AdminModule } from './admin/admin.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AuthModule } from './auth/auth.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, redisConfig, keycloakConfig, jwtConfig, appConfig],
+      load: [databaseConfig, redisConfig, jwtConfig, appConfig],
     }),
 
     TypeOrmModule.forRootAsync({
@@ -134,5 +135,7 @@ import { AuthModule } from './auth/auth.module';
     AnalyticsModule,
     AuthModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

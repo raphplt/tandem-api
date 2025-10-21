@@ -4,43 +4,21 @@ services:
     container_name: tandem-postgres
     environment:
       POSTGRES_DB: tandem_db
-      POSTGRES_USER: tandem
-      POSTGRES_PASSWORD: tandem_password
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./src/database/init:/docker-entrypoint-initdb.d
-    networks:
-      - tandem-network
+    networks: [tandem-network]
 
   redis:
     image: redis:7-alpine
     container_name: tandem-redis
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - tandem-network
+    networks: [tandem-network]
 
-  keycloak:
-    image: quay.io/keycloak/keycloak:22.0
-    container_name: tandem-keycloak
-    environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
-      KC_DB_USERNAME: tandem
-      KC_DB_PASSWORD: tandem_password
-    ports:
-      - "8080:8080"
-    command: start-dev
-    depends_on:
-      - postgres
-    networks:
-      - tandem-network
 
   jaeger:
     image: jaegertracing/all-in-one:1.50

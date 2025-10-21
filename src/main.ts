@@ -68,7 +68,7 @@ async function bootstrap() {
   const port = configService.get('app.port') || 3000;
   await app.listen(port);
 
-  console.log(`🚀 Tandem API is running on port ${port}`);
+  console.log(`🚀 Tandem API is running at http://localhost:${port}`);
   console.log(
     `📚 API Documentation available at http://localhost:${port}/api/docs`,
   );

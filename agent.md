@@ -9,7 +9,7 @@
 * **ORM** : TypeORM (PostgreSQL).
 * **Base de données** : PostgreSQL managé.
 * **Cache / Queues / WS adapter** : Redis (BullMQ pour jobs).
-* **Authentification** : **Keycloak (OIDC)**, access tokens courts + refresh rotation.
+* **Authentification** : **NestJS natif (JWT)**, access tokens courts + refresh rotation, bcryptjs pour le hachage des mots de passe.
 * **Communication temps réel** : Socket.IO (namespaces + rooms).
 * **API** : REST v1 + OpenAPI 3.1 généré automatiquement.
 * **Observabilité** : OpenTelemetry (traces), Prometheus (metrics), Sentry (erreurs), Grafana (dashboards).
