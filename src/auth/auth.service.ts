@@ -171,6 +171,17 @@ export class AuthService {
     return userWithoutPassword as User;
   }
 
+  async validateToken(token: string): Promise<User | null> {
+    try {
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: this.configService.get('jwt.secret'),
+      });
+      return this.validateUser(payload.sub);
+    } catch {
+      return null;
+    }
+  }
+
   async changePassword(
     userId: string,
     oldPassword: string,

@@ -1,5 +1,12 @@
 ### **Backend Tandem — Architecture détaillée et guide de développement**
 
+Tandem est une application sociale conçue pour recréer la profondeur des échanges humains.
+Chaque jour, un utilisateur ne peut parler qu’à une seule personne, choisie selon ses affinités et son humeur.
+La discussion dure 24 heures, puis disparaît sauf si les deux souhaitent la poursuivre.
+Aucune file infinie, aucun swipe, aucune illusion de choix — seulement un échange réel, dans un cadre apaisé.
+Tandem est le premier réseau social basé sur la rareté, la sincérité et la présence.
+
+
 ---
 
 ## **Choix techniques **

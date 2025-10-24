@@ -1,65 +1,42 @@
-import {
-  IsString,
-  IsOptional,
-  IsEnum,
-  IsNumber,
-  IsArray,
-  IsObject,
-  IsUrl,
-  MinLength,
-  MaxLength,
-  Min,
-  Max,
-  IsLatitude,
-  IsLongitude,
-} from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { Gender, ProfileVisibility } from '../entities/profile.entity';
 
-export class CreateProfileDto {
+export class ProfileResponseDto {
+  @ApiProperty({
+    description: 'Profile unique identifier',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  id: string;
+
+  @ApiProperty({
+    description: 'User ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  userId: string;
+
   @ApiProperty({
     description: 'User bio/description',
     example: 'I love hiking and reading books',
-    minLength: 10,
-    maxLength: 500,
   })
-  @IsString()
-  @MinLength(10, { message: 'Bio must be at least 10 characters long' })
-  @MaxLength(500, { message: 'Bio must not exceed 500 characters' })
   bio: string;
 
   @ApiProperty({
     description: 'City where the user lives',
     example: 'Paris',
-    minLength: 2,
-    maxLength: 100,
   })
-  @IsString()
-  @MinLength(2, { message: 'City must be at least 2 characters long' })
-  @MaxLength(100, { message: 'City must not exceed 100 characters' })
   city: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Country where the user lives',
     example: 'France',
-    minLength: 2,
-    maxLength: 100,
+    required: false,
   })
-  @IsOptional()
-  @IsString()
-  @MinLength(2, { message: 'Country must be at least 2 characters long' })
-  @MaxLength(100, { message: 'Country must not exceed 100 characters' })
   country?: string;
 
   @ApiProperty({
     description: 'User age',
     example: 25,
-    minimum: 18,
-    maximum: 100,
   })
-  @IsNumber()
-  @Min(18, { message: 'Age must be at least 18' })
-  @Max(100, { message: 'Age must not exceed 100' })
   age: number;
 
   @ApiProperty({
@@ -67,7 +44,6 @@ export class CreateProfileDto {
     enum: Gender,
     example: Gender.MALE,
   })
-  @IsEnum(Gender, { message: 'Invalid gender value' })
   gender: Gender;
 
   @ApiProperty({
@@ -76,29 +52,41 @@ export class CreateProfileDto {
     isArray: true,
     example: [Gender.FEMALE, Gender.NON_BINARY],
   })
-  @IsArray()
-  @IsEnum(Gender, { each: true, message: 'Invalid interested in gender value' })
   interestedIn: Gender[];
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Profile photo URL',
     example: 'https://example.com/photo.jpg',
+    required: false,
   })
-  @IsOptional()
-  @IsUrl({}, { message: 'Please provide a valid photo URL' })
   photoUrl?: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Profile visibility',
     enum: ProfileVisibility,
     example: ProfileVisibility.PUBLIC,
-    default: ProfileVisibility.PUBLIC,
   })
-  @IsOptional()
-  @IsEnum(ProfileVisibility, { message: 'Invalid visibility value' })
-  visibility?: ProfileVisibility;
+  visibility: ProfileVisibility;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
+    description: 'Profile active status',
+    example: true,
+  })
+  isActive: boolean;
+
+  @ApiProperty({
+    description: 'Profile completion status',
+    example: true,
+  })
+  isComplete: boolean;
+
+  @ApiProperty({
+    description: 'Profile verification status',
+    example: false,
+  })
+  isVerified: boolean;
+
+  @ApiProperty({
     description: 'User preferences',
     example: {
       ageRange: { min: 20, max: 35 },
@@ -106,9 +94,8 @@ export class CreateProfileDto {
       interests: ['hiking', 'reading'],
       values: ['honesty', 'kindness'],
     },
+    required: false,
   })
-  @IsOptional()
-  @IsObject()
   preferences?: {
     ageRange?: { min: number; max: number };
     maxDistance?: number;
@@ -116,7 +103,7 @@ export class CreateProfileDto {
     values?: string[];
   };
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Social media links',
     example: {
       instagram: 'https://instagram.com/username',
@@ -124,9 +111,8 @@ export class CreateProfileDto {
       linkedin: 'https://linkedin.com/in/username',
       website: 'https://example.com',
     },
+    required: false,
   })
-  @IsOptional()
-  @IsObject()
   socialLinks?: {
     instagram?: string;
     twitter?: string;
@@ -134,7 +120,7 @@ export class CreateProfileDto {
     website?: string;
   };
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'User location coordinates',
     example: {
       latitude: 48.8566,
@@ -142,13 +128,60 @@ export class CreateProfileDto {
       city: 'Paris',
       country: 'France',
     },
+    required: false,
   })
-  @IsOptional()
-  @IsObject()
   location?: {
     latitude: number;
     longitude: number;
     city: string;
     country: string;
   };
+
+  @ApiProperty({
+    description: 'Profile view count',
+    example: 150,
+  })
+  viewCount: number;
+
+  @ApiProperty({
+    description: 'Profile like count',
+    example: 25,
+  })
+  likeCount: number;
+
+  @ApiProperty({
+    description: 'Profile match count',
+    example: 5,
+  })
+  matchCount: number;
+
+  @ApiProperty({
+    description: 'Profile creation timestamp',
+    example: '2024-01-01T00:00:00.000Z',
+  })
+  createdAt: Date;
+
+  @ApiProperty({
+    description: 'Profile last update timestamp',
+    example: '2024-01-01T12:00:00.000Z',
+  })
+  updatedAt: Date;
+
+  @ApiProperty({
+    description: 'Whether profile is complete',
+    example: true,
+  })
+  isProfileComplete: boolean;
+
+  @ApiProperty({
+    description: 'Age range preference',
+    example: { min: 20, max: 35 },
+  })
+  ageRange: { min: number; max: number };
+
+  @ApiProperty({
+    description: 'Maximum distance preference',
+    example: 25,
+  })
+  maxDistance: number;
 }
