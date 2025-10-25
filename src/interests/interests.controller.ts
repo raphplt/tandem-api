@@ -22,13 +22,13 @@ import { CreateInterestDto } from './dto/create-interest.dto';
 import { UpdateInterestDto } from './dto/update-interest.dto';
 import { InterestResponseDto } from './dto/interest-response.dto';
 import { InterestCategory } from './entities/interest.entity';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/decorators';
 
 @ApiTags('interests')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard)
 @Controller('interests')
 export class InterestsController {
   constructor(private readonly interestsService: InterestsService) {}

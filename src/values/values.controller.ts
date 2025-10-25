@@ -22,13 +22,13 @@ import { CreateValueDto } from './dto/create-value.dto';
 import { UpdateValueDto } from './dto/update-value.dto';
 import { ValueResponseDto } from './dto/value-response.dto';
 import { ValueCategory } from './entities/value.entity';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/decorators';
 
 @ApiTags('values')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard)
 @Controller('values')
 export class ValuesController {
   constructor(private readonly valuesService: ValuesService) {}

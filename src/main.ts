@@ -12,7 +12,9 @@ import { LoggingInterceptor } from './common/logging.interceptor';
 import { TracingMiddleware } from './common/tracing.middleware';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bodyParser: false, // Required for Better Auth
+  });
   const configService = app.get(ConfigService);
 
   // Initialize Sentry
@@ -38,8 +40,9 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false, // Temporairement désactivé pour debug
       transform: true,
+      disableErrorMessages: false, // Activer les messages d'erreur détaillés
     }),
   );
 

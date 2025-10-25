@@ -11,11 +11,11 @@ import {
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/decorators';
 
 @Controller('messages')
-@UseGuards(JwtAuthGuard)
+@UseGuards(AuthGuard)
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 

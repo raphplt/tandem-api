@@ -22,7 +22,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { OwnershipGuard } from '../auth/ownership.guard';
 import { Roles, Public } from '../auth/decorators';
@@ -31,7 +31,7 @@ import { User } from './entities/user.entity';
 
 @ApiTags('users')
 @Controller('users')
-@UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard)
 @ApiBearerAuth()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}

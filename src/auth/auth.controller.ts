@@ -2,10 +2,11 @@ import {
   Controller,
   Post,
   Body,
-  UseGuards,
   Get,
   HttpCode,
   HttpStatus,
+  Req,
+  Res,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -13,20 +14,20 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { AuthService } from './auth.service';
+import { Request, Response } from 'express';
+import { BetterAuthService } from './better-auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
-import { JwtAuthGuard } from './jwt-auth.guard';
-import { CurrentUser } from './current-user.decorator';
+import { Public } from './public.decorator';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly betterAuthService: BetterAuthService) {}
 
   @Post('register')
+  @Public()
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({
     status: 201,
@@ -41,11 +42,67 @@ export class AuthController {
     status: 400,
     description: 'Invalid input data',
   })
-  async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
-    return this.authService.register(registerDto);
+  async register(
+    @Body() registerDto: RegisterDto,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    console.log('🚀 Register endpoint called');
+    console.log('📝 Register data received:', registerDto);
+
+    try {
+      const authInstance = this.betterAuthService.getAuthInstance();
+
+      const signUpData = {
+        email: registerDto.email,
+        password: registerDto.password,
+        name: `${registerDto.firstName} ${registerDto.lastName}`,
+      };
+
+      const result = await authInstance.api.signUpEmail({
+        body: signUpData,
+      });
+
+      if (!result.user) {
+        res.status(400).json({ message: 'Registration failed' });
+        return;
+      }
+
+      // Créer l'utilisateur dans notre table User pour la compatibilité
+      await this.betterAuthService.createUserFromBetterAuth(result.user);
+
+      const response: AuthResponseDto = {
+        accessToken: result.token || '',
+        refreshToken: result.token || '',
+        expiresIn: 60 * 60 * 24 * 7, // 7 jours
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          firstName: registerDto.firstName,
+          lastName: registerDto.lastName,
+          roles: ['user'],
+        },
+      };
+
+      res.status(201).json(response);
+    } catch (error) {
+      console.error('❌ Registration error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+      res.status(400).json({
+        message: 'Registration failed',
+        error: error.message,
+        details:
+          process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      });
+    }
   }
 
   @Post('login')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login user' })
   @ApiResponse({
@@ -57,32 +114,54 @@ export class AuthController {
     status: 401,
     description: 'Invalid credentials',
   })
-  async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
-    return this.authService.login(loginDto);
-  }
+  async login(
+    @Body() loginDto: LoginDto,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      const authInstance = this.betterAuthService.getAuthInstance();
 
-  @Post('refresh')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Refresh access token' })
-  @ApiResponse({
-    status: 200,
-    description: 'Token successfully refreshed',
-    type: AuthResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid refresh token',
-  })
-  async refreshToken(
-    @Body() refreshTokenDto: RefreshTokenDto,
-  ): Promise<AuthResponseDto> {
-    return this.authService.refreshToken(refreshTokenDto);
+      const signInData = {
+        email: loginDto.email,
+        password: loginDto.password,
+      };
+
+      const result = await authInstance.api.signInEmail({
+        body: signInData,
+      });
+
+      if (!result.user) {
+        res.status(401).json({ message: 'Invalid credentials' });
+        return;
+      }
+
+      // Mettre à jour la dernière connexion
+      await this.betterAuthService.updateUserLastLogin(result.user.id);
+
+      const response: AuthResponseDto = {
+        accessToken: result.token || '',
+        refreshToken: result.token || '',
+        expiresIn: 60 * 60 * 24 * 7, // 7 jours
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          firstName: result.user.name?.split(' ')[0] || '',
+          lastName: result.user.name?.split(' ')[1] || '',
+          roles: ['user'],
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(401).json({ message: 'Login failed' });
+    }
   }
 
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout user' })
   @ApiResponse({
     status: 200,
@@ -92,13 +171,22 @@ export class AuthController {
     status: 401,
     description: 'Unauthorized',
   })
-  async logout(@CurrentUser() user: any): Promise<{ message: string }> {
-    await this.authService.logout(user.userId);
-    return { message: 'Successfully logged out' };
+  async logout(@Req() req: Request, @Res() res: Response): Promise<void> {
+    try {
+      const authInstance = this.betterAuthService.getAuthInstance();
+
+      await authInstance.api.signOut({
+        headers: req.headers as any,
+      });
+
+      res.status(200).json({ message: 'Successfully logged out' });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ message: 'Logout failed' });
+    }
   }
 
   @Get('profile')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({
@@ -109,20 +197,28 @@ export class AuthController {
     status: 401,
     description: 'Unauthorized',
   })
-  async getProfile(@CurrentUser() user: any): Promise<any> {
+  async getProfile(@Req() req: Request): Promise<any> {
+    const authInstance = this.betterAuthService.getAuthInstance();
+    const session = await authInstance.api.getSession({
+      headers: req.headers as any,
+    });
+
+    if (!session?.user) {
+      throw new Error('Unauthorized');
+    }
+
     return {
-      id: user.userId,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      roles: user.roles,
+      id: session.user.id,
+      email: session.user.email,
+      firstName: session.user.name?.split(' ')[0] || '',
+      lastName: session.user.name?.split(' ')[1] || '',
+      roles: ['user'],
     };
   }
 
   @Post('change-password')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Change user password' })
   @ApiResponse({
     status: 200,
@@ -137,14 +233,29 @@ export class AuthController {
     description: 'Invalid new password',
   })
   async changePassword(
-    @CurrentUser() user: any,
     @Body() body: { oldPassword: string; newPassword: string },
-  ): Promise<{ message: string }> {
-    await this.authService.changePassword(
-      user.userId,
-      body.oldPassword,
-      body.newPassword,
-    );
-    return { message: 'Password successfully changed' };
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      const authInstance = this.betterAuthService.getAuthInstance();
+
+      const result = await authInstance.api.changePassword({
+        body: {
+          currentPassword: body.oldPassword,
+          newPassword: body.newPassword,
+        },
+      });
+
+      if (!result) {
+        res.status(400).json({ message: 'Password change failed' });
+        return;
+      }
+
+      res.status(200).json({ message: 'Password successfully changed' });
+    } catch (error) {
+      console.error('Password change error:', error);
+      res.status(400).json({ message: 'Password change failed' });
+    }
   }
 }

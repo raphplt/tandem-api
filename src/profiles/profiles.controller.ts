@@ -22,7 +22,7 @@ import { ProfilesService } from './profiles.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ProfileResponseDto } from './dto/profile-response.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { OwnershipGuard } from '../auth/ownership.guard';
 import { Roles } from '../auth/decorators';
@@ -32,7 +32,7 @@ import { Gender } from './entities/profile.entity';
 
 @ApiTags('profiles')
 @Controller('profiles')
-@UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard)
 @ApiBearerAuth()
 export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}

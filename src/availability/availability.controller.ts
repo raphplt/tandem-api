@@ -21,7 +21,7 @@ import { AvailabilityService } from './availability.service';
 import { CreateAvailabilityDto } from './dto/create-availability.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import { AvailabilityResponseDto } from './dto/availability-response.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { OwnershipGuard } from '../auth/ownership.guard';
 import { Roles } from '../auth/decorators';
@@ -30,7 +30,7 @@ import { AvailabilityStatus } from './entities/availability.entity';
 
 @ApiTags('availability')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard)
 @Controller('availability')
 export class AvailabilityController {
   constructor(private readonly availabilityService: AvailabilityService) {}

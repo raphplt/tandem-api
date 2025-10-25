@@ -1,39 +1,43 @@
 import { Module } from '@nestjs/common';
-import { PassportModule } from '@nestjs/passport';
-import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { User } from '../users/entities/user.entity';
+import { BetterAuthUser } from './entities/better-auth-user.entity';
+import { BetterAuthSession } from './entities/better-auth-session.entity';
+import { BetterAuthAccount } from './entities/better-auth-account.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { JwtStrategy } from './jwt.strategy';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import { BetterAuthService } from './better-auth.service';
+import { TypeORMAdapter } from './typeorm-adapter';
+import { AuthGuard } from './auth.guard';
 import { RolesGuard } from './roles.guard';
 import { OwnershipGuard } from './ownership.guard';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
-    PassportModule,
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get('jwt.secret'),
-        signOptions: {
-          expiresIn: configService.get('jwt.expiresIn'),
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    TypeOrmModule.forFeature([
+      User,
+      BetterAuthUser,
+      BetterAuthSession,
+      BetterAuthAccount,
+    ]),
+    ConfigModule,
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
-    JwtStrategy,
-    JwtAuthGuard,
+    BetterAuthService,
+    TypeORMAdapter,
+    AuthGuard,
     RolesGuard,
     OwnershipGuard,
   ],
-  exports: [AuthService, JwtAuthGuard, RolesGuard, OwnershipGuard],
+  exports: [
+    AuthService,
+    BetterAuthService,
+    AuthGuard,
+    RolesGuard,
+    OwnershipGuard,
+  ],
 })
 export class AuthModule {}

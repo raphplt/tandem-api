@@ -9,7 +9,6 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { redisStore } from 'cache-manager-redis-store';
 import databaseConfig from './config/database.config';
 import redisConfig from './config/redis.config';
-import jwtConfig from './config/jwt.config';
 import appConfig from './config/app.config';
 import { User } from './users/entities/user.entity';
 import { Profile } from './profiles/entities/profile.entity';
@@ -25,6 +24,9 @@ import { Value } from './values/entities/value.entity';
 import { Notification } from './notifications/entities/notification.entity';
 import { Admin } from './admin/entities/admin.entity';
 import { Analytics } from './analytics/entities/analytics.entity';
+import { BetterAuthUser } from './auth/entities/better-auth-user.entity';
+import { BetterAuthSession } from './auth/entities/better-auth-session.entity';
+import { BetterAuthAccount } from './auth/entities/better-auth-account.entity';
 import { UsersModule } from './users/users.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { AvailabilityModule } from './availability/availability.module';
@@ -47,7 +49,7 @@ import { AppService } from './app.service';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, redisConfig, jwtConfig, appConfig],
+      load: [databaseConfig, redisConfig, appConfig],
     }),
 
     TypeOrmModule.forRootAsync({
@@ -73,6 +75,9 @@ import { AppService } from './app.service';
           Notification,
           Admin,
           Analytics,
+          BetterAuthUser,
+          BetterAuthSession,
+          BetterAuthAccount,
         ],
         synchronize: configService.get('database.synchronize'),
         logging: configService.get('database.logging'),
