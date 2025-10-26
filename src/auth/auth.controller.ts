@@ -49,8 +49,19 @@ export class AuthController {
   ): Promise<void> {
     console.log('🚀 Register endpoint called');
     console.log('📝 Register data received:', registerDto);
+    console.log('📝 Raw body:', req.body);
 
     try {
+      // Validation des données d'entrée
+      if (!registerDto.email || !registerDto.password || !registerDto.firstName || !registerDto.lastName) {
+        console.error('❌ Missing required fields');
+        res.status(400).json({ 
+          message: 'Missing required fields',
+          required: ['email', 'password', 'firstName', 'lastName']
+        });
+        return;
+      }
+
       const authInstance = this.betterAuthService.getAuthInstance();
 
       const signUpData = {
@@ -59,12 +70,17 @@ export class AuthController {
         name: `${registerDto.firstName} ${registerDto.lastName}`,
       };
 
+      console.log('📝 SignUp data prepared:', signUpData);
+
       const result = await authInstance.api.signUpEmail({
         body: signUpData,
       });
 
+      console.log('📝 Better Auth result:', result);
+
       if (!result.user) {
-        res.status(400).json({ message: 'Registration failed' });
+        console.error('❌ No user returned from Better Auth');
+        res.status(400).json({ message: 'Registration failed - no user created' });
         return;
       }
 
@@ -84,6 +100,7 @@ export class AuthController {
         },
       };
 
+      console.log('✅ Registration successful');
       res.status(201).json(response);
     } catch (error) {
       console.error('❌ Registration error:', error);
@@ -91,6 +108,7 @@ export class AuthController {
         message: error.message,
         stack: error.stack,
         name: error.name,
+        code: error.code,
       });
       res.status(400).json({
         message: 'Registration failed',

@@ -21,6 +21,26 @@ export class TypeORMAdapter {
     private accountRepository: Repository<BetterAuthAccount>,
   ) {}
 
+  private transformWhere(where: any): any {
+    if (!where) return {};
+    
+    // If where is an array (Better Auth format), transform it
+    if (Array.isArray(where)) {
+      const result: any = {};
+      where.forEach((condition) => {
+        if (condition.field && condition.value !== undefined) {
+          if (condition.operator === 'eq') {
+            result[condition.field] = condition.value;
+          }
+        }
+      });
+      return result;
+    }
+    
+    // If it's already in TypeORM format, return as is
+    return where;
+  }
+
   createAdapter(config: TypeORMAdapterConfig = {}) {
     return createAdapterFactory({
       config: {
@@ -71,8 +91,9 @@ export class TypeORMAdapter {
               throw new Error(`Unknown model: ${model}`);
           }
 
-          await repository.update(where, update as any);
-          const updated = await repository.findOne({ where });
+          const transformedWhere = this.transformWhere(where);
+          await repository.update(transformedWhere, update as any);
+          const updated = await repository.findOne({ where: transformedWhere });
           return updated;
         },
 
@@ -92,7 +113,8 @@ export class TypeORMAdapter {
               throw new Error(`Unknown model: ${model}`);
           }
 
-          const result = await repository.update(where, update as any);
+          const transformedWhere = this.transformWhere(where);
+          const result = await repository.update(transformedWhere, update as any);
           return result.affected || 0;
         },
 
@@ -112,7 +134,8 @@ export class TypeORMAdapter {
               throw new Error(`Unknown model: ${model}`);
           }
 
-          await repository.delete(where);
+          const transformedWhere = this.transformWhere(where);
+          await repository.delete(transformedWhere);
         },
 
         deleteMany: async ({ model, where }) => {
@@ -131,7 +154,8 @@ export class TypeORMAdapter {
               throw new Error(`Unknown model: ${model}`);
           }
 
-          const result = await repository.delete(where);
+          const transformedWhere = this.transformWhere(where);
+          const result = await repository.delete(transformedWhere);
           return result.affected || 0;
         },
 
@@ -151,7 +175,8 @@ export class TypeORMAdapter {
               throw new Error(`Unknown model: ${model}`);
           }
 
-          return await repository.findOne({ where });
+          const transformedWhere = this.transformWhere(where);
+          return await repository.findOne({ where: transformedWhere });
         },
 
         findMany: async ({ model, where, limit, sortBy, offset }) => {
@@ -170,11 +195,12 @@ export class TypeORMAdapter {
               throw new Error(`Unknown model: ${model}`);
           }
 
+          const transformedWhere = this.transformWhere(where);
           const queryBuilder = repository.createQueryBuilder();
 
-          if (where) {
-            Object.keys(where).forEach((key) => {
-              queryBuilder.andWhere(`${key} = :${key}`, { [key]: where[key] });
+          if (transformedWhere && Object.keys(transformedWhere).length > 0) {
+            Object.keys(transformedWhere).forEach((key) => {
+              queryBuilder.andWhere(`${key} = :${key}`, { [key]: transformedWhere[key] });
             });
           }
 
@@ -211,11 +237,12 @@ export class TypeORMAdapter {
               throw new Error(`Unknown model: ${model}`);
           }
 
+          const transformedWhere = this.transformWhere(where);
           const queryBuilder = repository.createQueryBuilder();
 
-          if (where) {
-            Object.keys(where).forEach((key) => {
-              queryBuilder.andWhere(`${key} = :${key}`, { [key]: where[key] });
+          if (transformedWhere && Object.keys(transformedWhere).length > 0) {
+            Object.keys(transformedWhere).forEach((key) => {
+              queryBuilder.andWhere(`${key} = :${key}`, { [key]: transformedWhere[key] });
             });
           }
 

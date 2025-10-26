@@ -13,7 +13,7 @@ import { TracingMiddleware } from './common/tracing.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    bodyParser: false, // Required for Better Auth
+    bodyParser: true, // Enable JSON parsing for NestJS
   });
   const configService = app.get(ConfigService);
 
