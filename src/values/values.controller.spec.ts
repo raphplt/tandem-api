@@ -6,7 +6,6 @@ import { UpdateValueDto } from './dto/update-value.dto';
 import { ValueResponseDto } from './dto/value-response.dto';
 import { ValueCategory } from './entities/value.entity';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 
 describe('ValuesController', () => {
@@ -23,8 +22,6 @@ describe('ValuesController', () => {
         },
       ],
     })
-      .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: () => true })
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .compile();
@@ -60,7 +57,8 @@ describe('ValuesController', () => {
         isImportant: false,
         isCore: false,
         displayName: 'Honesty',
-        searchableText: 'honesty being truthful and transparent integrity trust',
+        searchableText:
+          'honesty being truthful and transparent integrity trust',
       };
 
       valuesService.create.mockResolvedValue(mockResponse);
@@ -80,8 +78,16 @@ describe('ValuesController', () => {
       ];
 
       const mockResponse: ValueResponseDto[] = [
-        { id: 'value-1', name: 'Honesty', category: ValueCategory.PERSONAL } as ValueResponseDto,
-        { id: 'value-2', name: 'Loyalty', category: ValueCategory.PERSONAL } as ValueResponseDto,
+        {
+          id: 'value-1',
+          name: 'Honesty',
+          category: ValueCategory.PERSONAL,
+        } as ValueResponseDto,
+        {
+          id: 'value-2',
+          name: 'Loyalty',
+          category: ValueCategory.PERSONAL,
+        } as ValueResponseDto,
       ];
 
       valuesService.bulkCreate.mockResolvedValue(mockResponse);
@@ -143,7 +149,11 @@ describe('ValuesController', () => {
   describe('findImportant', () => {
     it('should return important values', async () => {
       const mockResponse: ValueResponseDto[] = [
-        { id: 'value-1', name: 'Honesty', importanceScore: 100 } as ValueResponseDto,
+        {
+          id: 'value-1',
+          name: 'Honesty',
+          importanceScore: 100,
+        } as ValueResponseDto,
       ];
 
       valuesService.findImportant.mockResolvedValue(mockResponse);
@@ -158,7 +168,11 @@ describe('ValuesController', () => {
   describe('findCore', () => {
     it('should return core values', async () => {
       const mockResponse: ValueResponseDto[] = [
-        { id: 'value-1', name: 'Honesty', importanceScore: 150 } as ValueResponseDto,
+        {
+          id: 'value-1',
+          name: 'Honesty',
+          importanceScore: 150,
+        } as ValueResponseDto,
       ];
 
       valuesService.findCore.mockResolvedValue(mockResponse);
@@ -188,14 +202,20 @@ describe('ValuesController', () => {
   describe('findByCategory', () => {
     it('should return values by category', async () => {
       const mockResponse: ValueResponseDto[] = [
-        { id: 'value-1', name: 'Honesty', category: ValueCategory.PERSONAL } as ValueResponseDto,
+        {
+          id: 'value-1',
+          name: 'Honesty',
+          category: ValueCategory.PERSONAL,
+        } as ValueResponseDto,
       ];
 
       valuesService.findByCategory.mockResolvedValue(mockResponse);
 
       const result = await controller.findByCategory(ValueCategory.PERSONAL);
 
-      expect(valuesService.findByCategory).toHaveBeenCalledWith(ValueCategory.PERSONAL);
+      expect(valuesService.findByCategory).toHaveBeenCalledWith(
+        ValueCategory.PERSONAL,
+      );
       expect(result).toEqual(mockResponse);
     });
   });

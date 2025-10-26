@@ -1,18 +1,153 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Request } from 'express';
 import { User } from '../users/entities/user.entity';
 import { BetterAuthService } from './better-auth.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { AuthResponseDto } from './dto/auth-response.dto';
+
+const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7;
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
-    private userRepository: Repository<User>,
-    private betterAuthService: BetterAuthService,
+    private readonly userRepository: Repository<User>,
+    private readonly betterAuthService: BetterAuthService,
   ) {}
 
-  // Méthodes utilitaires pour l'intégration avec votre système existant
+  async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
+    const authInstance = this.betterAuthService.getAuthInstance();
+
+    try {
+      const result = await authInstance.api.signUpEmail({
+        body: {
+          email: registerDto.email,
+          password: registerDto.password,
+          name: `${registerDto.firstName} ${registerDto.lastName}`.trim(),
+        },
+      });
+
+      if (!result.user) {
+        throw new BadRequestException('Registration failed - user not created');
+      }
+
+      const user = await this.ensureLocalUser(result.user, {
+        firstName: registerDto.firstName,
+        lastName: registerDto.lastName,
+      });
+
+      return this.buildAuthResponse(user, result.token ?? '');
+    } catch (error) {
+      if (this.isDuplicateError(error)) {
+        throw new ConflictException('User with this email already exists');
+      }
+
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Registration failed',
+      );
+    }
+  }
+
+  async login(loginDto: LoginDto): Promise<AuthResponseDto> {
+    const authInstance = this.betterAuthService.getAuthInstance();
+
+    try {
+      const result = await authInstance.api.signInEmail({
+        body: {
+          email: loginDto.email,
+          password: loginDto.password,
+        },
+      });
+
+      if (!result.user) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      const user = await this.ensureLocalUser(result.user);
+      await this.updateUserLastLogin(user.id);
+
+      return this.buildAuthResponse(user, result.token ?? '');
+    } catch (error) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+  }
+
+  async logout(request: Request): Promise<void> {
+    const authInstance = this.betterAuthService.getAuthInstance();
+    const headers = request.headers as Record<string, unknown>;
+    const userId = (request as any).user?.id as string | undefined;
+
+    try {
+      await authInstance.api.signOut({ headers: headers as any });
+
+      if (userId) {
+        await this.updateUserLastLogout(userId);
+      }
+    } catch (error) {
+      throw new UnauthorizedException('Logout failed');
+    }
+  }
+
+  async getProfile(headers: Request['headers']): Promise<{
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    roles: string[];
+  }> {
+    const authInstance = this.betterAuthService.getAuthInstance();
+    const session = await authInstance.api.getSession({
+      headers: headers as any,
+    });
+
+    if (!session?.user) {
+      throw new UnauthorizedException('Unauthorized');
+    }
+
+    const localUser = await this.userRepository.findOne({
+      where: { id: session.user.id },
+    });
+
+    const names = this.resolveNames(session.user.name, {
+      firstName: localUser?.firstName,
+      lastName: localUser?.lastName,
+    });
+
+    return {
+      id: session.user.id,
+      email: session.user.email,
+      firstName: localUser?.firstName ?? names.firstName,
+      lastName: localUser?.lastName ?? names.lastName,
+      roles: localUser?.roles ?? ['user'],
+    };
+  }
+
+  async changePassword(body: {
+    oldPassword: string;
+    newPassword: string;
+  }): Promise<void> {
+    const authInstance = this.betterAuthService.getAuthInstance();
+
+    try {
+      await authInstance.api.changePassword({
+        body: {
+          currentPassword: body.oldPassword,
+          newPassword: body.newPassword,
+        },
+      });
+    } catch (error) {
+      throw new BadRequestException('Password change failed');
+    }
+  }
+
   async findUserByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { email } });
   }
@@ -29,30 +164,97 @@ export class AuthService {
     await this.userRepository.update(id, { lastLogoutAt: new Date() });
   }
 
-  async createUserFromBetterAuth(betterAuthUser: any): Promise<User> {
-    const [firstName, lastName] = betterAuthUser.name?.split(' ') || ['', ''];
-    
-    const user = this.userRepository.create({
-      id: betterAuthUser.id,
-      email: betterAuthUser.email,
-      firstName,
-      lastName,
-      password: '', // Le mot de passe est géré par better-auth
-      roles: ['user'],
-      isActive: true,
+  private async ensureLocalUser(
+    betterAuthUser: any,
+    overrideName?: { firstName?: string; lastName?: string },
+  ): Promise<User> {
+    const existingUser = await this.userRepository.findOne({
+      where: { id: betterAuthUser.id },
     });
 
-    return this.userRepository.save(user);
+    const { firstName, lastName } = this.resolveNames(betterAuthUser.name, {
+      firstName: overrideName?.firstName,
+      lastName: overrideName?.lastName,
+    });
+
+    if (!existingUser) {
+      const newUser = this.userRepository.create({
+        id: betterAuthUser.id,
+        email: betterAuthUser.email,
+        firstName,
+        lastName,
+        password: 'managed-by-better-auth',
+        roles: ['user'],
+        isActive: true,
+      });
+
+      return this.userRepository.save(newUser);
+    }
+
+    let shouldPersist = false;
+
+    if (existingUser.email !== betterAuthUser.email) {
+      existingUser.email = betterAuthUser.email;
+      shouldPersist = true;
+    }
+
+    if (firstName && existingUser.firstName !== firstName) {
+      existingUser.firstName = firstName;
+      shouldPersist = true;
+    }
+
+    if (lastName && existingUser.lastName !== lastName) {
+      existingUser.lastName = lastName;
+      shouldPersist = true;
+    }
+
+    return shouldPersist ? this.userRepository.save(existingUser) : existingUser;
   }
 
-  async syncUserWithBetterAuth(userId: string, betterAuthUser: any): Promise<void> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (user) {
-      await this.userRepository.update(userId, {
-        email: betterAuthUser.email,
-        firstName: betterAuthUser.name?.split(' ')[0] || user.firstName,
-        lastName: betterAuthUser.name?.split(' ')[1] || user.lastName,
-      });
+  private buildAuthResponse(user: User, token: string): AuthResponseDto {
+    return {
+      accessToken: token,
+      refreshToken: token,
+      expiresIn: SESSION_DURATION_SECONDS,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        roles: user.roles ?? ['user'],
+      },
+    };
+  }
+
+  private resolveNames(
+    fullName?: string | null,
+    override?: { firstName?: string; lastName?: string },
+  ): { firstName: string; lastName: string } {
+    if (override?.firstName || override?.lastName) {
+      return {
+        firstName: override.firstName ?? '',
+        lastName: override.lastName ?? '',
+      };
     }
+
+    if (!fullName) {
+      return { firstName: '', lastName: '' };
+    }
+
+    const parts = fullName.trim().split(/\s+/);
+    const firstName = parts.shift() ?? '';
+    const lastName = parts.join(' ');
+
+    return { firstName, lastName };
+  }
+
+  private isDuplicateError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const message = (error as any).message?.toLowerCase?.() ?? '';
+
+    return message.includes('already') || message.includes('duplicate');
   }
 }

@@ -6,7 +6,6 @@ import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import { AvailabilityResponseDto } from './dto/availability-response.dto';
 import { AvailabilityStatus } from './entities/availability.entity';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { OwnershipGuard } from '../auth/ownership.guard';
 
@@ -24,8 +23,6 @@ describe('AvailabilityController', () => {
         },
       ],
     })
-      .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: () => true })
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(OwnershipGuard)

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { BetterAuthService } from './better-auth.service';
+import { AuthService } from './auth.service';
 import { IS_PUBLIC_KEY } from './public.decorator';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class AuthGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private betterAuthService: BetterAuthService,
+    private authService: AuthService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -26,7 +28,7 @@ export class AuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    
+
     try {
       const authInstance = this.betterAuthService.getAuthInstance();
       const session = await authInstance.api.getSession({
@@ -37,18 +39,44 @@ export class AuthGuard implements CanActivate {
         throw new UnauthorizedException('No valid session found');
       }
 
-      // Ajouter l'utilisateur à la requête
+      const localUser = await this.authService.findUserById(session.user.id);
+      const [firstName, lastName] = this.extractNames(
+        session.user.name,
+        localUser?.firstName,
+        localUser?.lastName,
+      );
+
       request.user = {
-        userId: session.user.id,
+        id: session.user.id,
         email: session.user.email,
-        firstName: session.user.name?.split(' ')[0] || '',
-        lastName: session.user.name?.split(' ')[1] || '',
-        roles: ['user'],
+        firstName,
+        lastName,
+        roles: localUser?.roles ?? ['user'],
       };
 
       return true;
     } catch (error) {
       throw new UnauthorizedException('Authentication failed');
     }
+  }
+
+  private extractNames(
+    fullName?: string | null,
+    fallbackFirstName?: string,
+    fallbackLastName?: string,
+  ): [string, string] {
+    if (fallbackFirstName || fallbackLastName) {
+      return [fallbackFirstName ?? '', fallbackLastName ?? ''];
+    }
+
+    if (!fullName) {
+      return ['', ''];
+    }
+
+    const parts = fullName.trim().split(/\s+/);
+    const firstName = parts.shift() ?? '';
+    const lastName = parts.join(' ');
+
+    return [firstName, lastName];
   }
 }

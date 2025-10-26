@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In, Not } from 'typeorm';
 import { Message, MessageType, MessageStatus } from './entities/message.entity';
@@ -11,7 +12,16 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
 import { Conversation } from '../conversations/entities/conversation.entity';
-import { User } from '../users/entities/user.entity';
+import {
+  MESSAGE_CREATED_EVENT,
+  MESSAGE_DELETED_EVENT,
+  MESSAGE_READ_EVENT,
+  MESSAGE_UPDATED_EVENT,
+  MessageCreatedEvent,
+  MessageDeletedEvent,
+  MessageReadEvent,
+  MessageUpdatedEvent,
+} from './events/message.events';
 
 @Injectable()
 export class MessagesService {
@@ -24,8 +34,7 @@ export class MessagesService {
     private messageRepository: Repository<Message>,
     @InjectRepository(Conversation)
     private conversationRepository: Repository<Conversation>,
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(
@@ -81,7 +90,15 @@ export class MessagesService {
       messageCount: () => 'messageCount + 1',
     });
 
-    return this.mapToResponseDto(savedMessage);
+    const response = this.mapToResponseDto(savedMessage);
+    const eventPayload: MessageCreatedEvent = {
+      message: response,
+      conversationId,
+      recipients: [conversation.user1Id, conversation.user2Id],
+    };
+    this.eventEmitter.emit(MESSAGE_CREATED_EVENT, eventPayload);
+
+    return response;
   }
 
   async findAll(): Promise<MessageResponseDto[]> {
@@ -174,7 +191,13 @@ export class MessagesService {
       where: { id },
     });
 
-    return this.mapToResponseDto(updatedMessage!);
+    const response = this.mapToResponseDto(updatedMessage!);
+    const eventPayload: MessageUpdatedEvent = {
+      message: response,
+    };
+    this.eventEmitter.emit(MESSAGE_UPDATED_EVENT, eventPayload);
+
+    return response;
   }
 
   async delete(id: string, userId: string): Promise<MessageResponseDto> {
@@ -207,14 +230,31 @@ export class MessagesService {
       where: { id },
     });
 
-    return this.mapToResponseDto(updatedMessage!);
+    const response = this.mapToResponseDto(updatedMessage!);
+    const eventPayload: MessageDeletedEvent = {
+      message: response,
+    };
+    this.eventEmitter.emit(MESSAGE_DELETED_EVENT, eventPayload);
+
+    return response;
   }
 
   async markAsDelivered(id: string): Promise<void> {
+    const message = await this.messageRepository.findOne({ where: { id } });
+
+    if (!message) {
+      return;
+    }
+
+    const metadata = {
+      ...(message.metadata ?? {}),
+      deliveryAttempts: (message.metadata?.deliveryAttempts ?? 0) + 1,
+      lastDeliveryAttempt: new Date(),
+    };
+
     await this.messageRepository.update(id, {
       status: MessageStatus.DELIVERED,
-      metadata: () =>
-        `metadata || '{"deliveryAttempts": (metadata->>'deliveryAttempts')::int + 1}'`,
+      metadata,
     });
   }
 
@@ -242,6 +282,13 @@ export class MessagesService {
         status: MessageStatus.READ,
       },
     );
+
+    const eventPayload: MessageReadEvent = {
+      conversationId,
+      userId,
+      unreadCount: 0,
+    };
+    this.eventEmitter.emit(MESSAGE_READ_EVENT, eventPayload);
   }
 
   async createSystemMessage(
@@ -282,7 +329,15 @@ export class MessagesService {
       messageCount: () => 'messageCount + 1',
     });
 
-    return this.mapToResponseDto(savedMessage);
+    const response = this.mapToResponseDto(savedMessage);
+    const eventPayload: MessageCreatedEvent = {
+      message: response,
+      conversationId,
+      recipients: [conversation.user1Id, conversation.user2Id],
+    };
+    this.eventEmitter.emit(MESSAGE_CREATED_EVENT, eventPayload);
+
+    return response;
   }
 
   async getUnreadCount(userId: string): Promise<number> {
@@ -363,7 +418,7 @@ export class MessagesService {
     return messages.map((message) => this.mapToResponseDto(message));
   }
 
-  private async validateConversationAccess(
+  async validateConversationAccess(
     conversationId: string,
     userId: string,
   ): Promise<Conversation> {

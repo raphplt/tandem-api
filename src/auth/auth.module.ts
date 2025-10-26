@@ -12,6 +12,7 @@ import { TypeORMAdapter } from './typeorm-adapter';
 import { AuthGuard } from './auth.guard';
 import { RolesGuard } from './roles.guard';
 import { OwnershipGuard } from './ownership.guard';
+import { WsAuthGuard } from './ws-auth.guard';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { OwnershipGuard } from './ownership.guard';
     AuthGuard,
     RolesGuard,
     OwnershipGuard,
+    WsAuthGuard,
   ],
   exports: [
     AuthService,
@@ -38,6 +40,7 @@ import { OwnershipGuard } from './ownership.guard';
     AuthGuard,
     RolesGuard,
     OwnershipGuard,
+    WsAuthGuard,
   ],
 })
 export class AuthModule {}

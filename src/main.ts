@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
@@ -10,6 +10,7 @@ import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/global-exception.filter';
 import { LoggingInterceptor } from './common/logging.interceptor';
 import { TracingMiddleware } from './common/tracing.middleware';
+import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -54,6 +55,19 @@ async function bootstrap() {
 
   // Middleware
   app.use(new TracingMiddleware().use);
+
+  // WebSocket adapter
+  const redisAdapter = new RedisIoAdapter(app);
+  try {
+    await redisAdapter.connectToRedis();
+  } catch (error) {
+    const err = error as Error;
+    const bootstrapLogger = new Logger('Bootstrap');
+    bootstrapLogger.warn(
+      `Falling back to in-memory Socket.IO adapter: ${err.message}`,
+    );
+  }
+  app.useWebSocketAdapter(redisAdapter);
 
   // API prefix
   app.setGlobalPrefix(configService.get('app.apiPrefix') || 'api/v1');

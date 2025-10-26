@@ -23,7 +23,7 @@ export class TypeORMAdapter {
 
   private transformWhere(where: any): any {
     if (!where) return {};
-    
+
     // If where is an array (Better Auth format), transform it
     if (Array.isArray(where)) {
       const result: any = {};
@@ -36,7 +36,7 @@ export class TypeORMAdapter {
       });
       return result;
     }
-    
+
     // If it's already in TypeORM format, return as is
     return where;
   }
@@ -196,11 +196,16 @@ export class TypeORMAdapter {
           }
 
           const transformedWhere = this.transformWhere(where);
-          const queryBuilder = repository.createQueryBuilder();
+          const queryBuilder = repository.createQueryBuilder(
+            repository.metadata.name,
+          );
+          const alias = queryBuilder.alias;
 
           if (transformedWhere && Object.keys(transformedWhere).length > 0) {
-            Object.keys(transformedWhere).forEach((key) => {
-              queryBuilder.andWhere(`${key} = :${key}`, { [key]: transformedWhere[key] });
+            Object.entries(transformedWhere).forEach(([key, value]) => {
+              queryBuilder.andWhere(`${alias}.${key} = :${key}`, {
+                [key]: value,
+              });
             });
           }
 
@@ -213,8 +218,11 @@ export class TypeORMAdapter {
           }
 
           if (sortBy) {
-            Object.keys(sortBy).forEach((key) => {
-              queryBuilder.orderBy(key, sortBy[key] === 'asc' ? 'ASC' : 'DESC');
+            Object.entries(sortBy).forEach(([key, direction]) => {
+              queryBuilder.addOrderBy(
+                `${alias}.${key}`,
+                direction === 'asc' ? 'ASC' : 'DESC',
+              );
             });
           }
 
@@ -238,11 +246,16 @@ export class TypeORMAdapter {
           }
 
           const transformedWhere = this.transformWhere(where);
-          const queryBuilder = repository.createQueryBuilder();
+          const queryBuilder = repository.createQueryBuilder(
+            repository.metadata.name,
+          );
+          const alias = queryBuilder.alias;
 
           if (transformedWhere && Object.keys(transformedWhere).length > 0) {
-            Object.keys(transformedWhere).forEach((key) => {
-              queryBuilder.andWhere(`${key} = :${key}`, { [key]: transformedWhere[key] });
+            Object.entries(transformedWhere).forEach(([key, value]) => {
+              queryBuilder.andWhere(`${alias}.${key} = :${key}`, {
+                [key]: value,
+              });
             });
           }
 

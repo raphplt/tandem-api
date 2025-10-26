@@ -1,191 +1,171 @@
+jest.mock('better-auth', () => ({
+  betterAuth: jest.fn(() => ({ api: {} })),
+}));
+
+jest.mock('better-auth/adapters', () => ({
+  createAdapter: jest.fn(),
+  createAdapterFactory: jest.fn(() => jest.fn()),
+}));
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
-import { UnauthorizedException, ConflictException } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import { UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { BetterAuthService } from './better-auth.service';
 import { User } from '../users/entities/user.entity';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let userRepository: Repository<User>;
-  let jwtService: JwtService;
-  let configService: ConfigService;
-
-  const mockUser = {
-    id: '123e4567-e89b-12d3-a456-426614174000',
-    email: 'test@example.com',
-    password: 'hashedPassword',
-    firstName: 'John',
-    lastName: 'Doe',
-    roles: ['user'],
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+  let userRepository: jest.Mocked<Repository<User>>;
+  let mockAuthInstance: {
+    api: {
+      signUpEmail: jest.Mock;
+      signInEmail: jest.Mock;
+      signOut: jest.Mock;
+      getSession: jest.Mock;
+      changePassword: jest.Mock;
+    };
   };
-
-  const mockRepository = {
-    findOne: jest.fn(),
-    create: jest.fn(),
-    save: jest.fn(),
-    update: jest.fn(),
-  };
-
-  const mockJwtService = {
-    signAsync: jest.fn(),
-    verifyAsync: jest.fn(),
-  };
-
-  const mockConfigService = {
-    get: jest.fn((key: string) => {
-      const config = {
-        'jwt.secret': 'test-secret',
-        'jwt.expiresIn': '15m',
-        'jwt.refreshExpiresIn': '7d',
-      };
-      return config[key];
-    }),
-  };
+  let betterAuthServiceMock: { getAuthInstance: jest.Mock };
+  let repositoryMock: jest.Mocked<Repository<User>>;
 
   beforeEach(async () => {
+    mockAuthInstance = {
+      api: {
+        signUpEmail: jest.fn(),
+        signInEmail: jest.fn(),
+        signOut: jest.fn(),
+        getSession: jest.fn(),
+        changePassword: jest.fn(),
+      },
+    };
+
+    betterAuthServiceMock = {
+      getAuthInstance: jest.fn(() => mockAuthInstance),
+    };
+
+    repositoryMock = {
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      update: jest.fn(),
+    } as unknown as jest.Mocked<Repository<User>>;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         {
+          provide: BetterAuthService,
+          useValue: betterAuthServiceMock,
+        },
+        {
           provide: getRepositoryToken(User),
-          useValue: mockRepository,
-        },
-        {
-          provide: JwtService,
-          useValue: mockJwtService,
-        },
-        {
-          provide: ConfigService,
-          useValue: mockConfigService,
+          useValue: repositoryMock,
         },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    userRepository = module.get<Repository<User>>(getRepositoryToken(User));
-    jwtService = module.get<JwtService>(JwtService);
-    configService = module.get<ConfigService>(ConfigService);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
+    userRepository = module.get(getRepositoryToken(User)) as jest.Mocked<
+      Repository<User>
+    >;
   });
 
   describe('register', () => {
-    it('should register a new user successfully', async () => {
-      const registerDto = {
-        email: 'test@example.com',
-        password: 'password123',
-        firstName: 'John',
-        lastName: 'Doe',
+    it('creates a local user when registration succeeds', async () => {
+      const betterAuthUser = {
+        id: 'user-id',
+        email: 'new@example.com',
+        name: 'Jane Doe',
       };
 
-      mockRepository.findOne.mockResolvedValue(null);
-      mockRepository.create.mockReturnValue(mockUser);
-      mockRepository.save.mockResolvedValue(mockUser);
-      mockJwtService.signAsync.mockResolvedValue('mock-token');
-
-      const result = await service.register(registerDto);
-
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
-        where: { email: registerDto.email },
+      mockAuthInstance.api.signUpEmail.mockResolvedValue({
+        user: betterAuthUser,
+        token: 'session-token',
       });
-      expect(mockRepository.create).toHaveBeenCalled();
-      expect(mockRepository.save).toHaveBeenCalled();
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('refreshToken');
-      expect(result).toHaveProperty('user');
-    });
-
-    it('should throw ConflictException if user already exists', async () => {
-      const registerDto = {
-        email: 'test@example.com',
-        password: 'password123',
-        firstName: 'John',
+      userRepository.findOne.mockResolvedValue(null as any);
+      userRepository.create.mockReturnValue({
+        ...betterAuthUser,
+        firstName: 'Jane',
         lastName: 'Doe',
-      };
-
-      mockRepository.findOne.mockResolvedValue(mockUser);
-
-      await expect(service.register(registerDto)).rejects.toThrow(
-        ConflictException,
+        roles: ['user'],
+      } as any);
+      userRepository.save.mockImplementation((user: any) =>
+        Promise.resolve(user),
       );
+
+      const result = await service.register({
+        email: 'new@example.com',
+        password: 'secret123',
+        firstName: 'Jane',
+        lastName: 'Doe',
+      });
+
+      expect(mockAuthInstance.api.signUpEmail).toHaveBeenCalled();
+      expect(userRepository.create).toHaveBeenCalled();
+      expect(userRepository.save).toHaveBeenCalled();
+      expect(result.user.id).toBe('user-id');
+      expect(result.accessToken).toBe('session-token');
     });
   });
 
   describe('login', () => {
-    it('should login user successfully', async () => {
-      const loginDto = {
-        email: 'test@example.com',
-        password: 'password123',
+    it('returns auth response when Better Auth succeeds', async () => {
+      const betterAuthUser = {
+        id: 'user-id',
+        email: 'user@example.com',
+        name: 'John Doe',
       };
 
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-      mockRepository.findOne.mockResolvedValue(mockUser);
-      mockRepository.update.mockResolvedValue({});
-      mockJwtService.signAsync.mockResolvedValue('mock-token');
-
-      const result = await service.login(loginDto);
-
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
-        where: { email: loginDto.email },
+      mockAuthInstance.api.signInEmail.mockResolvedValue({
+        user: betterAuthUser,
+        token: 'session-token',
       });
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('refreshToken');
-      expect(result).toHaveProperty('user');
+      userRepository.findOne.mockResolvedValue({
+        id: 'user-id',
+        email: 'user@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        roles: ['user'],
+      } as any);
+
+      const result = await service.login({
+        email: 'user@example.com',
+        password: 'secret123',
+      });
+
+      expect(mockAuthInstance.api.signInEmail).toHaveBeenCalled();
+      expect(userRepository.update).toHaveBeenCalled();
+      expect(result.user.email).toBe('user@example.com');
     });
 
-    it('should throw UnauthorizedException if user not found', async () => {
-      const loginDto = {
-        email: 'test@example.com',
-        password: 'password123',
-      };
+    it('throws UnauthorizedException when Better Auth rejects', async () => {
+      mockAuthInstance.api.signInEmail.mockRejectedValue(new Error('invalid'));
 
-      mockRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.login(loginDto)).rejects.toThrow(
-        UnauthorizedException,
-      );
-    });
-
-    it('should throw UnauthorizedException if password is invalid', async () => {
-      const loginDto = {
-        email: 'test@example.com',
-        password: 'wrongpassword',
-      };
-
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
-      mockRepository.findOne.mockResolvedValue(mockUser);
-
-      await expect(service.login(loginDto)).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.login({ email: 'user@example.com', password: 'oops' }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
     });
   });
 
-  describe('validateUser', () => {
-    it('should return user if valid and active', async () => {
-      mockRepository.findOne.mockResolvedValue(mockUser);
+  describe('getProfile', () => {
+    it('combines Better Auth session with local user data', async () => {
+      mockAuthInstance.api.getSession.mockResolvedValue({
+        user: { id: 'user-id', email: 'profile@example.com', name: 'John D' },
+      });
+      userRepository.findOne.mockResolvedValue({
+        id: 'user-id',
+        email: 'profile@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        roles: ['user', 'admin'],
+      } as any);
 
-      const result = await service.validateUser(mockUser.id);
+      const profile = await service.getProfile({ authorization: 'token' });
 
-      expect(result).toBeDefined();
-      expect(result?.id).toBe(mockUser.id);
-    });
-
-    it('should return null if user not found or inactive', async () => {
-      mockRepository.findOne.mockResolvedValue(null);
-
-      const result = await service.validateUser('invalid-id');
-
-      expect(result).toBeNull();
+      expect(profile.id).toBe('user-id');
+      expect(profile.roles).toEqual(['user', 'admin']);
     });
   });
 });

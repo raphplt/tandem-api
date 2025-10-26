@@ -6,7 +6,6 @@ import { UpdateInterestDto } from './dto/update-interest.dto';
 import { InterestResponseDto } from './dto/interest-response.dto';
 import { InterestCategory } from './entities/interest.entity';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 
 describe('InterestsController', () => {
@@ -23,8 +22,6 @@ describe('InterestsController', () => {
         },
       ],
     })
-      .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: () => true })
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .compile();

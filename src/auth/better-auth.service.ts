@@ -14,31 +14,20 @@ export class BetterAuthService {
 
   constructor(
     @InjectRepository(BetterAuthUser)
-    private userRepository: Repository<BetterAuthUser>,
+    private readonly userRepository: Repository<BetterAuthUser>,
     @InjectRepository(BetterAuthSession)
-    private sessionRepository: Repository<BetterAuthSession>,
+    private readonly sessionRepository: Repository<BetterAuthSession>,
     @InjectRepository(BetterAuthAccount)
-    private accountRepository: Repository<BetterAuthAccount>,
-    private configService: ConfigService,
+    private readonly accountRepository: Repository<BetterAuthAccount>,
+    private readonly configService: ConfigService,
   ) {
-    console.log('🔧 Initializing BetterAuthService...');
-    
-    try {
-      // Créer l'adaptateur TypeORM
-      const typeORMAdapter = new TypeORMAdapter(
-        this.userRepository,
-        this.sessionRepository,
-        this.accountRepository,
-      );
+    const typeORMAdapter = new TypeORMAdapter(
+      this.userRepository,
+      this.sessionRepository,
+      this.accountRepository,
+    );
 
-      console.log('📊 Config values:', {
-        secret: this.configService.get('jwt.secret'),
-        baseURL: this.configService.get('app.baseURL') || 'http://localhost:3001',
-        corsOrigin: this.configService.get('app.corsOrigin') || 'http://localhost:3001',
-        nodeEnv: this.configService.get('NODE_ENV'),
-      });
-
-      this.auth = betterAuth({
+    this.auth = betterAuth({
       database: typeORMAdapter.createAdapter({
         debugLogs: this.configService.get('NODE_ENV') === 'development',
       }),
@@ -59,41 +48,9 @@ export class BetterAuthService {
         this.configService.get('app.corsOrigin') || 'http://localhost:3001',
       ],
     });
-    
-    console.log('✅ BetterAuth initialized successfully');
-    } catch (error) {
-      console.error('❌ BetterAuth initialization failed:', error);
-      throw error;
-    }
   }
 
   getAuthInstance() {
     return this.auth;
-  }
-
-  // Méthodes utilitaires pour l'intégration
-  async findUserByEmail(email: string): Promise<BetterAuthUser | null> {
-    return this.userRepository.findOne({ where: { email } });
-  }
-
-  async findUserById(id: string): Promise<BetterAuthUser | null> {
-    return this.userRepository.findOne({ where: { id } });
-  }
-
-  async createUserFromBetterAuth(betterAuthUser: any): Promise<BetterAuthUser> {
-    const user = this.userRepository.create({
-      id: betterAuthUser.id,
-      email: betterAuthUser.email,
-      name: betterAuthUser.name,
-      image: betterAuthUser.image,
-      emailVerified: betterAuthUser.emailVerified,
-    });
-
-    return this.userRepository.save(user);
-  }
-
-  async updateUserLastLogin(id: string): Promise<void> {
-    // Cette méthode peut être implémentée si nécessaire
-    // Pour l'instant, better-auth gère les sessions automatiquement
   }
 }
