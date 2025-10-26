@@ -8,6 +8,14 @@ import { InterestCategory } from './entities/interest.entity';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { RolesGuard } from '../auth/roles.guard';
 
+jest.mock('../auth/auth.guard', () => ({
+  AuthGuard: class MockAuthGuard {
+    canActivate() {
+      return true;
+    }
+  },
+}));
+
 describe('InterestsController', () => {
   let controller: InterestsController;
   let interestsService: DeepMockProxy<InterestsService>;

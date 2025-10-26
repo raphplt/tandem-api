@@ -8,6 +8,14 @@ import { ValueCategory } from './entities/value.entity';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { RolesGuard } from '../auth/roles.guard';
 
+jest.mock('../auth/auth.guard', () => ({
+  AuthGuard: class MockAuthGuard {
+    canActivate() {
+      return true;
+    }
+  },
+}));
+
 describe('ValuesController', () => {
   let controller: ValuesController;
   let valuesService: DeepMockProxy<ValuesService>;

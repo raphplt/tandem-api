@@ -9,6 +9,14 @@ import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { RolesGuard } from '../auth/roles.guard';
 import { OwnershipGuard } from '../auth/ownership.guard';
 
+jest.mock('../auth/auth.guard', () => ({
+  AuthGuard: class MockAuthGuard {
+    canActivate() {
+      return true;
+    }
+  },
+}));
+
 describe('AvailabilityController', () => {
   let controller: AvailabilityController;
   let availabilityService: DeepMockProxy<AvailabilityService>;
