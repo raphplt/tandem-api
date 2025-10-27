@@ -1,4 +1,5 @@
 import { UserRole } from 'src/common/enums/user.enums';
+import { Profile } from 'src/profiles/entities/profile.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -6,6 +7,8 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  OneToOne,
+  JoinColumn,
 } from 'typeorm';
 
 @Entity('users')
@@ -46,6 +49,12 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  // Relations
+
+  @OneToOne(() => Profile, (profile) => profile.user)
+  @JoinColumn()
+  profile: Profile;
 
   // Champ calculé pour obtenir le nom complet de l'utilisateur
   get fullName(): string {

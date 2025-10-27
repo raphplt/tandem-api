@@ -32,7 +32,7 @@ export class Profile {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, { onDelete: 'CASCADE' })
+  @OneToOne(() => User, (user) => user.profile, { onDelete: 'CASCADE' })
   @JoinColumn()
   user: User;
 
@@ -68,7 +68,7 @@ export class Profile {
   interestedIn: Gender[];
 
   @Column({ nullable: true })
-  photoUrl?: string;
+  photoUrl?: string; // TODO : stocker plusieurs photos ?
 
   @Column({ nullable: true })
   photoPublicId?: string;
@@ -81,7 +81,7 @@ export class Profile {
   visibility: ProfileVisibility;
 
   @Column({ default: true })
-  isActive: boolean;
+  isActive: boolean; // TODO : doublon ? avec user.isActive
 
   @Column({ default: true })
   isComplete: boolean;
@@ -101,6 +101,9 @@ export class Profile {
   socialLinks?: {
     instagram?: string;
     twitter?: string;
+    youTube?: string;
+    facebook?: string;
+    spotify?: string;
     linkedin?: string;
     website?: string;
   };
@@ -135,7 +138,7 @@ export class Profile {
   @ManyToMany(() => Value, (value) => value.profiles)
   values: Value[];
 
-  // Virtual fields for API responses
+  // Champs calculés
   get isProfileComplete(): boolean {
     return !!(
       this.bio &&
