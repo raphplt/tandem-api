@@ -1,3 +1,4 @@
+import { UserRole } from 'src/common/enums/user.enums';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -28,8 +29,8 @@ export class User {
   @Column({ nullable: true })
   dateOfBirth?: Date;
 
-  @Column('simple-array', { default: 'user' })
-  roles: string[];
+  @Column('simple-array', { default: [UserRole.USER] })
+  roles: UserRole[];
 
   @Column({ default: true })
   isActive: boolean;
@@ -46,7 +47,7 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // Virtual fields for API responses (not stored in database)
+  // Champ calculé pour obtenir le nom complet de l'utilisateur
   get fullName(): string {
     return `${this.firstName} ${this.lastName}`;
   }

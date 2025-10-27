@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { BetterAuthService } from './better-auth.service';
 import { AuthService } from './auth.service';
 import { IS_PUBLIC_KEY } from './public.decorator';
+import { UserRole } from 'src/common/enums/user.enums';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -51,7 +52,7 @@ export class AuthGuard implements CanActivate {
         email: session.user.email,
         firstName,
         lastName,
-        roles: localUser?.roles ?? ['user'],
+        roles: localUser?.roles ?? [UserRole.USER],
       };
 
       return true;

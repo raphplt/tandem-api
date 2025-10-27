@@ -9,6 +9,7 @@ import {
   IsIn,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { UserRole } from 'src/common/enums/user.enums';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -70,5 +71,5 @@ export class CreateUserDto {
     each: true,
     message: 'Invalid role provided',
   })
-  roles?: string[];
+  roles?: UserRole[];
 }

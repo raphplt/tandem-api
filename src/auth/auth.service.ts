@@ -12,6 +12,7 @@ import { BetterAuthService } from './better-auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { UserRole } from 'src/common/enums/user.enums';
 
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7;
 
@@ -101,7 +102,7 @@ export class AuthService {
     email: string;
     firstName: string;
     lastName: string;
-    roles: string[];
+    roles: UserRole[];
   }> {
     const authInstance = this.betterAuthService.getAuthInstance();
     const session = await authInstance.api.getSession({
@@ -126,7 +127,7 @@ export class AuthService {
       email: session.user.email,
       firstName: localUser?.firstName ?? names.firstName,
       lastName: localUser?.lastName ?? names.lastName,
-      roles: localUser?.roles ?? ['user'],
+      roles: localUser?.roles ?? [UserRole.USER],
     };
   }
 
@@ -184,7 +185,7 @@ export class AuthService {
         firstName,
         lastName,
         password: 'managed-by-better-auth',
-        roles: ['user'],
+        roles: [UserRole.USER],
         isActive: true,
       });
 
@@ -208,7 +209,9 @@ export class AuthService {
       shouldPersist = true;
     }
 
-    return shouldPersist ? this.userRepository.save(existingUser) : existingUser;
+    return shouldPersist
+      ? this.userRepository.save(existingUser)
+      : existingUser;
   }
 
   private buildAuthResponse(user: User, token: string): AuthResponseDto {
@@ -221,7 +224,7 @@ export class AuthService {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        roles: user.roles ?? ['user'],
+        roles: user.roles ?? [UserRole.USER],
       },
     };
   }

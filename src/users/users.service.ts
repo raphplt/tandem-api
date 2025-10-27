@@ -12,6 +12,7 @@ import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { UserRole } from 'src/common/enums/user.enums';
 
 @Injectable()
 export class UsersService {
@@ -50,7 +51,7 @@ export class UsersService {
       firstName,
       lastName,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-      roles: roles || ['user'],
+      roles: roles || [UserRole.USER],
       isActive: true,
     });
 

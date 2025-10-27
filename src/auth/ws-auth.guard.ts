@@ -9,6 +9,7 @@ import type { Socket } from 'socket.io';
 import { BetterAuthService } from './better-auth.service';
 import { AuthService } from './auth.service';
 import { IS_PUBLIC_KEY } from './public.decorator';
+import { UserRole } from 'src/common/enums/user.enums';
 
 export interface AuthenticatedSocket extends Socket {
   data: {
@@ -17,7 +18,7 @@ export interface AuthenticatedSocket extends Socket {
       email?: string | null;
       firstName?: string;
       lastName?: string;
-      roles?: string[];
+      roles?: UserRole[];
     };
   };
 }
@@ -71,7 +72,7 @@ export class WsAuthGuard implements CanActivate {
         email: session.user.email ?? undefined,
         firstName,
         lastName,
-        roles: localUser?.roles ?? ['user'],
+        roles: localUser?.roles ?? [UserRole.USER],
       };
 
       return true;
