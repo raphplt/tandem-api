@@ -14,7 +14,7 @@ import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    bodyParser: true, // Enable JSON parsing for NestJS
+    bodyParser: true,
   });
   const configService = app.get(ConfigService);
 
@@ -41,9 +41,8 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: false, // Temporairement désactivé pour debug
+      // forbidNonWhitelisted: false, // Temporairement désactivé pour debug
       transform: true,
-      disableErrorMessages: false, // Activer les messages d'erreur détaillés
     }),
   );
 
@@ -82,12 +81,14 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = configService.get('app.port') || 3000;
-  await app.listen(port);
+  const port = configService.get<number>('app.port') || 3000;
+  const host = configService.get<string>('app.host') || '0.0.0.0';
+  await app.listen(port, host);
 
-  console.log(`🚀 Tandem API is running at http://localhost:${port}`);
+  const displayedHost = host === '0.0.0.0' ? 'localhost' : host;
+  console.log(`🚀 Tandem API is running at http://${displayedHost}:${port}`);
   console.log(
-    `📚 API Documentation available at http://localhost:${port}/api/docs`,
+    `📚 API Documentation available at http://${displayedHost}:${port}/api/docs`,
   );
 }
 
