@@ -31,10 +31,9 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
 
     try {
-      const authInstance = this.betterAuthService.getAuthInstance();
-      const session = await authInstance.api.getSession({
-        headers: request.headers as any,
-      });
+      const session = await this.betterAuthService.getSession(
+        request.headers as any,
+      );
 
       if (!session?.user) {
         throw new UnauthorizedException('No valid session found');

@@ -104,10 +104,7 @@ export class AuthService {
     lastName: string;
     roles: UserRole[];
   }> {
-    const authInstance = this.betterAuthService.getAuthInstance();
-    const session = await authInstance.api.getSession({
-      headers: headers as any,
-    });
+    const session = await this.betterAuthService.getSession(headers as any);
 
     if (!session?.user) {
       throw new UnauthorizedException('Unauthorized');

@@ -42,34 +42,32 @@ export class MatchesService {
     const { user1Id, user2Id, profile1Id, profile2Id, matchDate } =
       createMatchDto;
 
-    // Validate that users exist and are active
     await this.validateUsersExist([user1Id, user2Id]);
 
-    // Validate that profiles exist and are active
     await this.validateProfilesExist([profile1Id, profile2Id]);
 
-    // Check for existing match between these users
+    // Vérifier si un match existe déjà entre ces utilisateurs
     const existingMatch = await this.findExistingMatch(user1Id, user2Id);
     if (existingMatch) {
       throw new ConflictException('Match already exists between these users');
     }
 
-    // Check if users already have daily matches
+    // Vérifier si les utilisateurs ont déjà un match quotidien
     await this.validateDailyMatchLimit(user1Id, user2Id, matchDate);
 
-    // Calculate compatibility score if not provided
+    // Calculer le score de compatibilité si non fourni
     const compatibilityScore =
       createMatchDto.compatibilityScore ||
       (await this.calculateCompatibilityScore(profile1Id, profile2Id));
 
-    // Validate minimum compatibility score
+    // Valider le score de compatibilité minimum
     if (compatibilityScore < this.MIN_COMPATIBILITY_SCORE) {
       throw new BadRequestException(
         `Compatibility score ${compatibilityScore} is below minimum threshold ${this.MIN_COMPATIBILITY_SCORE}`,
       );
     }
 
-    // Create match
+    // Créer le match
     const match = this.matchRepository.create({
       ...createMatchDto,
       compatibilityScore,
@@ -163,7 +161,7 @@ export class MatchesService {
       throw new NotFoundException(`Match with ID ${id} not found`);
     }
 
-    // Check if user is trying to update someone else's match
+    // Vérifier si l'utilisateur est en train de mettre à jour un match d'un autre utilisateur
     if (
       currentUserId &&
       match.user1Id !== currentUserId &&
@@ -172,7 +170,7 @@ export class MatchesService {
       throw new ForbiddenException('You can only update your own matches');
     }
 
-    // Update match
+    // Mettre à jour le match
     await this.matchRepository.update(id, updateMatchDto);
 
     const updatedMatch = await this.matchRepository.findOne({
@@ -191,22 +189,22 @@ export class MatchesService {
       throw new NotFoundException(`Match with ID ${id} not found`);
     }
 
-    // Check if user is part of this match
+    // Vérifier si l'utilisateur fait partie de ce match
     if (match.user1Id !== userId && match.user2Id !== userId) {
       throw new ForbiddenException('You can only accept your own matches');
     }
 
-    // Check if match is still pending
+    // Vérifier si le match est toujours en attente
     if (match.status !== MatchStatus.PENDING) {
       throw new BadRequestException('Match is not pending');
     }
 
-    // Check if match has expired
+    // Vérifier si le match a expiré
     if (match.isExpired) {
       throw new BadRequestException('Match has expired');
     }
 
-    // Update match status
+    // Mettre à jour le statut du match
     await this.matchRepository.update(id, {
       status: MatchStatus.ACCEPTED,
       acceptedAt: new Date(),
@@ -229,17 +227,17 @@ export class MatchesService {
       throw new NotFoundException(`Match with ID ${id} not found`);
     }
 
-    // Check if user is part of this match
+    // Vérifier si l'utilisateur fait partie de ce match
     if (match.user1Id !== userId && match.user2Id !== userId) {
       throw new ForbiddenException('You can only reject your own matches');
     }
 
-    // Check if match is still pending
+    // Vérifier si le match est toujours en attente
     if (match.status !== MatchStatus.PENDING) {
       throw new BadRequestException('Match is not pending');
     }
 
-    // Update match status
+    // Mettre à jour le statut du match
     await this.matchRepository.update(id, {
       status: MatchStatus.REJECTED,
       rejectedAt: new Date(),
@@ -261,17 +259,17 @@ export class MatchesService {
       throw new NotFoundException(`Match with ID ${id} not found`);
     }
 
-    // Check if user is part of this match
+    // Vérifier si l'utilisateur fait partie de ce match
     if (match.user1Id !== userId && match.user2Id !== userId) {
       throw new ForbiddenException('You can only cancel your own matches');
     }
 
-    // Check if match can be cancelled
+    // Vérifier si le match peut être annulé
     if (match.status === MatchStatus.CANCELLED) {
       throw new BadRequestException('Match is already cancelled');
     }
 
-    // Update match status
+    // Mettre à jour le statut du match
     await this.matchRepository.update(id, {
       status: MatchStatus.CANCELLED,
       cancelledAt: new Date(),
@@ -309,7 +307,7 @@ export class MatchesService {
       throw new NotFoundException(`Match with ID ${id} not found`);
     }
 
-    // Check if user is trying to delete someone else's match
+    // Vérifier si l'utilisateur est en train de supprimer un match d'un autre utilisateur
     if (
       currentUserId &&
       match.user1Id !== currentUserId &&
@@ -318,7 +316,7 @@ export class MatchesService {
       throw new ForbiddenException('You can only delete your own matches');
     }
 
-    // Soft delete by deactivating the match
+    // Soft delete en désactivant le match
     await this.matchRepository.update(id, { isActive: false });
   }
 
@@ -337,7 +335,7 @@ export class MatchesService {
   async generateDailyMatches(date: string): Promise<MatchResponseDto[]> {
     const matchDate = new Date(date);
 
-    // Get all active profiles for the day
+    // Récupérer tous les profils actifs pour la journée
     const profiles = await this.profileRepository.find({
       where: { isActive: true, isComplete: true },
     });
@@ -345,14 +343,15 @@ export class MatchesService {
     const matches: Match[] = [];
     const usedProfiles = new Set<string>();
 
-    // Simple matching algorithm - in production, this would be more sophisticated
+    //TODO : à améliorer
+    // Algorithme de matching simple - en production, cela serait plus sophistiqué
     for (let i = 0; i < profiles.length; i++) {
       if (usedProfiles.has(profiles[i].id)) continue;
 
       for (let j = i + 1; j < profiles.length; j++) {
         if (usedProfiles.has(profiles[j].id)) continue;
 
-        // Check if users already have a match for this date
+        // Vérifier si les utilisateurs ont déjà un match pour cette date
         const existingMatch = await this.findExistingMatch(
           profiles[i].userId,
           profiles[j].userId,
@@ -360,7 +359,7 @@ export class MatchesService {
 
         if (existingMatch) continue;
 
-        // Calculate compatibility score
+        // Calculer le score de compatibilité
         const compatibilityScore = await this.calculateCompatibilityScore(
           profiles[i].id,
           profiles[j].id,
@@ -389,7 +388,7 @@ export class MatchesService {
           matches.push(savedMatch);
           usedProfiles.add(profiles[i].id);
           usedProfiles.add(profiles[j].id);
-          break; // Move to next profile
+          break;
         }
       }
     }
@@ -464,6 +463,7 @@ export class MatchesService {
     }
   }
 
+  //TODO : à améliorer
   private async calculateCompatibilityScore(
     profile1Id: string,
     profile2Id: string,
