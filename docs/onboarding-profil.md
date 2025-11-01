@@ -1,9 +1,4 @@
-Parfait. Voici la **version compacte du prompt pour ton agent IA backend**, destinée à **mettre à jour l’API NestJS** en cohérence avec l’onboarding et la création de profil décrits.
-Tout est optimisé pour la consommation minimale de tokens, sans phrases inutiles.
-
----
-
-### 🧠 **Prompt – API Update Tandem (Profil / Onboarding V1)**
+### API Update Tandem (Profil / Onboarding V1)
 
 **Objectif :**
 Mettre à jour l’API NestJS pour supporter l’onboarding et la création de profil minimaliste de l’app Tandem.
@@ -24,20 +19,12 @@ Adapter les entités `User`, `Profile`, `Interest` et leurs endpoints CRUD.
 #### 1. **Entité `User`**
 
 - Champs à conserver : `id`, `email`, `password`, `createdAt`, `updatedAt`.
-- Ajouts :
-
-  ```ts
-  firstName: string;
-  age: number;
-  profile: Profile;
-  ```
 
 - Relation : `@OneToOne(() => Profile, profile => profile.user, { cascade: true })`
-- Supprimer les champs obsolètes non utilisés par le MVP.
 
 #### 2. **Entité `Profile`**
 
-- Nouvelle entité reliée à `User`.
+- Eentité reliée à `User`.
 - Champs :
 
   ```ts
@@ -48,6 +35,7 @@ Adapter les entités `User`, `Profile`, `Interest` et leurs endpoints CRUD.
   createdAt: Date;
   updatedAt: Date;
   ```
+  (et tout autre champ que tu juge nécessaire)
 
 - Relation :
 

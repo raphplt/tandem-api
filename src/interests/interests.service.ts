@@ -28,10 +28,8 @@ export class InterestsService {
     const { name, description, category, icon, color, tags, metadata } =
       createInterestDto;
 
-    // Validate interest data
     this.validateInterestData(createInterestDto);
 
-    // Check for existing interest with same name
     const existingInterest = await this.interestRepository.findOne({
       where: { name },
     });
@@ -42,7 +40,6 @@ export class InterestsService {
       );
     }
 
-    // Create interest
     const interest = this.interestRepository.create({
       name,
       description,
@@ -151,11 +148,9 @@ export class InterestsService {
       throw new NotFoundException(`Interest with ID ${id} not found`);
     }
 
-    // Validate update data
     if (updateInterestDto.name) {
       this.validateInterestData(updateInterestDto as CreateInterestDto);
 
-      // Check for name conflict
       const existingInterest = await this.interestRepository.findOne({
         where: { name: updateInterestDto.name },
       });
@@ -167,7 +162,6 @@ export class InterestsService {
       }
     }
 
-    // Update interest
     await this.interestRepository.update(id, updateInterestDto);
 
     const updatedInterest = await this.interestRepository.findOne({
@@ -180,7 +174,6 @@ export class InterestsService {
   async incrementProfileCount(id: string): Promise<void> {
     await this.interestRepository.increment({ id }, 'profileCount', 1);
 
-    // Update popularity score based on profile count
     const interest = await this.interestRepository.findOne({ where: { id } });
     if (interest) {
       const newPopularityScore = Math.min(interest.profileCount * 2, 200);
@@ -193,7 +186,6 @@ export class InterestsService {
   async decrementProfileCount(id: string): Promise<void> {
     await this.interestRepository.decrement({ id }, 'profileCount', 1);
 
-    // Update popularity score based on profile count
     const interest = await this.interestRepository.findOne({ where: { id } });
     if (interest) {
       const newPopularityScore = Math.max(interest.profileCount * 2, 0);
@@ -212,7 +204,6 @@ export class InterestsService {
       throw new NotFoundException(`Interest with ID ${id} not found`);
     }
 
-    // Soft delete by deactivating the interest
     await this.interestRepository.update(id, { isActive: false });
   }
 
@@ -239,7 +230,6 @@ export class InterestsService {
         createdInterests.push(interest as any);
       } catch (error) {
         if (error instanceof ConflictException) {
-          // Skip if already exists
           continue;
         }
         throw error;

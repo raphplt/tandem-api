@@ -29,7 +29,6 @@ export class ProfilesService {
     userId: string,
     createProfileDto: CreateProfileDto,
   ): Promise<ProfileResponseDto> {
-    // Check if profile already exists for this user
     const existingProfile = await this.profileRepository.findOne({
       where: { userId },
     });
@@ -38,10 +37,8 @@ export class ProfilesService {
       throw new ConflictException('Profile already exists for this user');
     }
 
-    // Validate profile data
     this.validateProfileData(createProfileDto);
 
-    // Create profile
     const profile = this.profileRepository.create({
       userId,
       ...createProfileDto,
@@ -98,7 +95,6 @@ export class ProfilesService {
       throw new NotFoundException(`Profile with ID ${id} not found`);
     }
 
-    // Check if user is trying to update someone else's profile
     if (currentUserId && profile.userId !== currentUserId) {
       throw new ForbiddenException('You can only update your own profile');
     }

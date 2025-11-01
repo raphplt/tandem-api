@@ -451,7 +451,7 @@ enum MessageType {
 
 ```typescript
 enum MessageStatus {
-  SENT = 主要是, // Message envoyé
+  SENT = 'sent', // Message envoyé
   DELIVERED = 'delivered', // Message livré
   READ = 'read', // Message lu
   FAILED = 'failed', // Échec d'envoi
