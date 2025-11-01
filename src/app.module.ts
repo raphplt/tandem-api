@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
@@ -42,14 +43,17 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AdminModule } from './admin/admin.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AuthModule } from './auth/auth.module';
+import { AuthGuard } from './auth/auth.guard';
+import { RolesGuard } from './auth/roles.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import authConfig from './config/auth.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, redisConfig, appConfig],
+      load: [databaseConfig, redisConfig, appConfig, authConfig],
     }),
 
     TypeOrmModule.forRootAsync({
@@ -141,6 +145,10 @@ import { AppService } from './app.service';
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+  ],
 })
 export class AppModule {}

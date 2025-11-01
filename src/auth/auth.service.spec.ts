@@ -106,7 +106,7 @@ describe('AuthService', () => {
       expect(userRepository.create).toHaveBeenCalled();
       expect(userRepository.save).toHaveBeenCalled();
       expect(result.user.id).toBe('user-id');
-      expect(result.accessToken).toBe('session-token');
+      expect(result.sessionToken).toBe('session-token');
     });
   });
 

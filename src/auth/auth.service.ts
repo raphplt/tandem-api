@@ -45,7 +45,7 @@ export class AuthService {
         lastName: registerDto.lastName,
       });
 
-      return this.buildAuthResponse(user, result.token ?? '');
+  return this.buildAuthResponse(user, result.token ?? '');
     } catch (error) {
       if (this.isDuplicateError(error)) {
         throw new ConflictException('User with this email already exists');
@@ -75,7 +75,7 @@ export class AuthService {
       const user = await this.ensureLocalUser(result.user);
       await this.updateUserLastLogin(user.id);
 
-      return this.buildAuthResponse(user, result.token ?? '');
+  return this.buildAuthResponse(user, result.token ?? '');
     } catch (error) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -181,7 +181,6 @@ export class AuthService {
         email: betterAuthUser.email,
         firstName,
         lastName,
-        password: 'managed-by-better-auth',
         roles: [UserRole.USER],
         isActive: true,
       });
@@ -213,8 +212,7 @@ export class AuthService {
 
   private buildAuthResponse(user: User, token: string): AuthResponseDto {
     return {
-      accessToken: token,
-      refreshToken: token,
+      sessionToken: token,
       expiresIn: SESSION_DURATION_SECONDS,
       user: {
         id: user.id,

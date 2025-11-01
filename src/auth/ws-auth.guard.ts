@@ -83,8 +83,8 @@ export class WsAuthGuard implements CanActivate {
   private collectHeaders(client: Socket): Record<string, string> {
     const headers: Record<string, string> = {};
 
-    // Collecter tous les headers du handshake (incluant les cookies)
-    // Better Auth utilise les cookies automatiquement pour l'authentification
+    // Collecter les headers du handshake (dont Authorization si fourni)
+    // En mode Bearer-only, l'auth repose sur le header Authorization
     for (const [key, value] of Object.entries(client.handshake.headers)) {
       if (Array.isArray(value)) {
         if (value.length > 0 && typeof value[0] === 'string') {

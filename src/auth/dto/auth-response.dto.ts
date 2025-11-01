@@ -3,20 +3,14 @@ import { UserRole } from 'src/common/enums/user.enums';
 
 export class AuthResponseDto {
   @ApiProperty({
-    description: 'JWT access token',
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    description: 'Better Auth session token to use as Bearer token',
+    example: 'session-opaque-token',
   })
-  accessToken: string;
+  sessionToken: string;
 
   @ApiProperty({
-    description: 'JWT refresh token',
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-  })
-  refreshToken: string;
-
-  @ApiProperty({
-    description: 'Token expiration time in seconds',
-    example: 900,
+    description: 'Session token expiration time in seconds',
+    example: 604800,
   })
   expiresIn: number;
 

@@ -33,7 +33,8 @@ export class BetterAuthService {
       }),
       emailAndPassword: {
         enabled: true,
-        requireEmailVerification: false,
+        requireEmailVerification:
+          this.configService.get('app.nodeEnv') === 'production',
       },
       session: {
         expiresIn: 60 * 60 * 24 * 7, // 7 jours
@@ -42,8 +43,12 @@ export class BetterAuthService {
       advanced: {
         generateId: () => crypto.randomUUID(),
       },
-      secret: this.configService.get('jwt.secret'),
-      baseURL: this.configService.get('app.baseURL') || 'http://localhost:3001',
+      secret:
+        this.configService.get('auth.secret') ||
+        process.env.AUTH_SECRET ||
+        'change-me-in-production',
+      baseURL:
+        this.configService.get('auth.baseURL') || 'http://localhost:3001',
       trustedOrigins: [
         this.configService.get('app.corsOrigin') || 'http://localhost:3001',
       ],
@@ -55,12 +60,20 @@ export class BetterAuthService {
   }
 
   /**
-   * Récupère la session via Better Auth
-   * Better Auth gère les cookies HTTP pour l'authentification
+   * Récupère la session via Better Auth en mode Bearer-only.
+   * On attend un header Authorization: Bearer <sessionToken> et on le
+   * transmet à Better Auth sous forme de cookie attendu par son API interne.
    */
   async getSession(headers: Record<string, unknown>): Promise<any | null> {
+    const authHeader = (headers.authorization as string | undefined) ?? '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+    if (!token) {
+      return null;
+    }
+
     return await this.auth.api.getSession({
-      headers: headers as any,
+      headers: { cookie: `better-auth.session_token=${token}` } as any,
     });
   }
 }
