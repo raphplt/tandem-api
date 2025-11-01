@@ -83,6 +83,8 @@ export class WsAuthGuard implements CanActivate {
   private collectHeaders(client: Socket): Record<string, string> {
     const headers: Record<string, string> = {};
 
+    // Collecter tous les headers du handshake (incluant les cookies)
+    // Better Auth utilise les cookies automatiquement pour l'authentification
     for (const [key, value] of Object.entries(client.handshake.headers)) {
       if (Array.isArray(value)) {
         if (value.length > 0 && typeof value[0] === 'string') {
@@ -93,41 +95,7 @@ export class WsAuthGuard implements CanActivate {
       }
     }
 
-    if (!headers.authorization) {
-      const token = this.extractToken(client);
-      if (token) {
-        headers.authorization = token.startsWith('Bearer ')
-          ? token
-          : `Bearer ${token}`;
-      }
-    }
-
     return headers;
-  }
-
-  private extractToken(client: Socket): string | undefined {
-    const authHeader = client.handshake.headers['authorization'];
-
-    if (typeof authHeader === 'string' && authHeader.length > 0) {
-      return authHeader;
-    }
-
-    const authToken = client.handshake.auth?.token;
-    if (typeof authToken === 'string' && authToken.length > 0) {
-      return authToken;
-    }
-
-    const queryToken = client.handshake.query?.token;
-    if (typeof queryToken === 'string' && queryToken.length > 0) {
-      return queryToken;
-    }
-
-    if (Array.isArray(queryToken) && queryToken.length > 0) {
-      const first = queryToken[0];
-      return typeof first === 'string' ? first : undefined;
-    }
-
-    return undefined;
   }
 
   private extractNames(
