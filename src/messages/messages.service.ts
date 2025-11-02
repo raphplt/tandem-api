@@ -101,13 +101,22 @@ export class MessagesService {
     return response;
   }
 
-  async findAll(): Promise<MessageResponseDto[]> {
-    const messages = await this.messageRepository.find({
-      where: { isDeleted: false },
-      order: { createdAt: 'DESC' },
-    });
+  async findAll(
+    conversationId: string,
+    userId: string,
+    limit = 50,
+    offset = 0,
+  ): Promise<MessageResponseDto[]> {
+    //TODO : safe limit à retirer ?
+    const safeLimit = Math.min(Math.max(limit, 1), 100);
+    const safeOffset = Math.max(offset, 0);
 
-    return messages.map((message) => this.mapToResponseDto(message));
+    return this.findByConversation(
+      conversationId,
+      userId,
+      safeLimit,
+      safeOffset,
+    );
   }
 
   async findOne(id: string): Promise<MessageResponseDto> {

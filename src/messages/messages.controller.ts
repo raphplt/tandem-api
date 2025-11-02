@@ -7,6 +7,8 @@ import {
   Param,
   Delete,
   UseGuards,
+  Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -25,8 +27,36 @@ export class MessagesController {
   }
 
   @Get()
-  findAll() {
-    return this.messagesService.findAll();
+  findAll(
+    @Query('conversationId') conversationId: string,
+    @Query('limit') limitParam: string | undefined,
+    @Query('offset') offsetParam: string | undefined,
+    @CurrentUser() user: any,
+  ) {
+    if (!conversationId) {
+      throw new BadRequestException(
+        'Query parameter "conversationId" is required',
+      );
+    }
+
+    const DEFAULT_LIMIT = 50;
+    const MAX_LIMIT = 100;
+
+    const parsedLimit = limitParam ? parseInt(limitParam, 10) : DEFAULT_LIMIT;
+    const parsedOffset = offsetParam ? parseInt(offsetParam, 10) : 0;
+
+    if (Number.isNaN(parsedLimit) || parsedLimit <= 0) {
+      throw new BadRequestException('Query parameter "limit" must be a number greater than 0');
+    }
+
+    if (Number.isNaN(parsedOffset) || parsedOffset < 0) {
+      throw new BadRequestException('Query parameter "offset" must be a non-negative number');
+    }
+
+    const limit = Math.min(parsedLimit, MAX_LIMIT);
+    const offset = parsedOffset;
+
+    return this.messagesService.findAll(conversationId, user.id, limit, offset);
   }
 
   @Get(':id')
