@@ -11,8 +11,10 @@ import { redisStore } from 'cache-manager-redis-store';
 import databaseConfig from './config/database.config';
 import redisConfig from './config/redis.config';
 import appConfig from './config/app.config';
+import r2Config from './config/r2.config';
 import { User } from './users/entities/user.entity';
 import { Profile } from './profiles/entities/profile.entity';
+import { ProfilePreference } from './profiles/entities/profile-preference.entity';
 import { Availability } from './availability/entities/availability.entity';
 import { Match } from './matches/entities/match.entity';
 import { Conversation } from './conversations/entities/conversation.entity';
@@ -28,6 +30,12 @@ import { Analytics } from './analytics/entities/analytics.entity';
 import { BetterAuthUser } from './auth/entities/better-auth-user.entity';
 import { BetterAuthSession } from './auth/entities/better-auth-session.entity';
 import { BetterAuthAccount } from './auth/entities/better-auth-account.entity';
+import { OnboardingDraft } from './onboarding/entities/onboarding-draft.entity';
+import { UserAuthMethod } from './users/entities/user-auth-method.entity';
+import { Session } from './users/entities/session.entity';
+import { Photo } from './users/entities/photo.entity';
+import { Verification } from './users/entities/verification.entity';
+import { AuditLog } from './users/entities/audit-log.entity';
 import { UsersModule } from './users/users.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { AvailabilityModule } from './availability/availability.module';
@@ -42,7 +50,9 @@ import { ValuesModule } from './values/values.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AdminModule } from './admin/admin.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
 import { AuthModule } from './auth/auth.module';
+import { MediaModule } from './media/media.module';
 import { AuthGuard } from './auth/auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { AppController } from './app.controller';
@@ -53,7 +63,7 @@ import authConfig from './config/auth.config';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, redisConfig, appConfig, authConfig],
+      load: [databaseConfig, redisConfig, appConfig, authConfig, r2Config],
     }),
 
     TypeOrmModule.forRootAsync({
@@ -67,6 +77,7 @@ import authConfig from './config/auth.config';
         entities: [
           User,
           Profile,
+          ProfilePreference,
           Availability,
           Match,
           Conversation,
@@ -79,6 +90,12 @@ import authConfig from './config/auth.config';
           Notification,
           Admin,
           Analytics,
+          OnboardingDraft,
+          UserAuthMethod,
+          Session,
+          Photo,
+          Verification,
+          AuditLog,
           BetterAuthUser,
           BetterAuthSession,
           BetterAuthAccount,
@@ -142,6 +159,8 @@ import authConfig from './config/auth.config';
     NotificationsModule,
     AdminModule,
     AnalyticsModule,
+    OnboardingModule,
+    MediaModule,
     AuthModule,
   ],
   controllers: [AppController],

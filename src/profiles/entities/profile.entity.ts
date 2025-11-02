@@ -23,7 +23,6 @@ export enum Gender {
 
 export enum ProfileVisibility {
   PUBLIC = 'public',
-  FRIENDS_ONLY = 'friends_only',
   PRIVATE = 'private',
 }
 
@@ -39,14 +38,11 @@ export class Profile {
   @Column()
   userId: string;
 
-  @Column({ nullable: true })
-  bio?: string;
+  @Column({ name: 'first_name', nullable: true })
+  firstName?: string;
 
-  @Column({ nullable: true })
-  city?: string;
-
-  @Column({ nullable: true })
-  country?: string;
+  @Column({ type: 'date', name: 'birthdate', nullable: true })
+  birthdate?: Date;
 
   @Column({ nullable: true })
   @Index()
@@ -68,7 +64,27 @@ export class Profile {
   interestedIn: Gender[];
 
   @Column({ nullable: true })
-  photoUrl?: string; // TODO : stocker plusieurs photos ?
+  intention?: string;
+
+  @Column({ nullable: true })
+  city?: string;
+
+  @Column({ nullable: true })
+  country?: string;
+
+  @Column({ type: 'double precision', nullable: true })
+  @Index()
+  lat?: number;
+
+  @Column({ type: 'double precision', nullable: true })
+  @Index()
+  lng?: number;
+
+  @Column({ type: 'varchar', length: 280, nullable: true })
+  bio?: string;
+
+  @Column({ nullable: true })
+  photoUrl?: string;
 
   @Column({ nullable: true })
   photoPublicId?: string;
@@ -79,9 +95,6 @@ export class Profile {
     default: ProfileVisibility.PUBLIC,
   })
   visibility: ProfileVisibility;
-
-  @Column({ default: true })
-  isActive: boolean; // TODO : doublon ? avec user.isActive
 
   @Column({ default: true })
   isComplete: boolean;
@@ -116,6 +129,12 @@ export class Profile {
     country: string;
   };
 
+  @Column({ name: 'published_at', type: 'timestamptz', nullable: true })
+  publishedAt?: Date;
+
+  @Column({ default: true })
+  isActive: boolean;
+
   @Column({ default: 0 })
   viewCount: number;
 
@@ -125,27 +144,25 @@ export class Profile {
   @Column({ default: 0 })
   matchCount: number;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  // Relations
   @ManyToMany(() => Interest, (interest) => interest.profiles)
   interests: Interest[];
 
   @ManyToMany(() => Value, (value) => value.profiles)
   values: Value[];
 
-  // Champs calculés
   get isProfileComplete(): boolean {
     return !!(
       this.bio &&
       this.city &&
       this.age &&
       this.gender &&
-      this.photoUrl &&
+      (this.photoUrl || this.photoPublicId) &&
       this.interestedIn.length > 0
     );
   }

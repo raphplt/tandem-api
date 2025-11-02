@@ -19,9 +19,9 @@ export class AuthResponseDto {
     type: 'object',
     properties: {
       id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-      email: { type: 'string', example: 'user@example.com' },
-      firstName: { type: 'string', example: 'John' },
-      lastName: { type: 'string', example: 'Doe' },
+      email: { type: 'string', example: 'user@example.com', nullable: true },
+      firstName: { type: 'string', example: 'John', nullable: true },
+      lastName: { type: 'string', example: 'Doe', nullable: true },
       roles: {
         type: 'array',
         items: { type: 'string' },
@@ -31,9 +31,9 @@ export class AuthResponseDto {
   })
   user: {
     id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
     roles: UserRole[];
   };
 }

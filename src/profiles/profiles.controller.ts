@@ -1,306 +1,114 @@
 import {
+  Body,
   Controller,
   Get,
   Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  UseGuards,
-  Query,
-  HttpCode,
-  HttpStatus,
+  Put,
 } from '@nestjs/common';
 import {
-  ApiTags,
+  ApiBearerAuth,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
-  ApiQuery,
+  ApiTags,
 } from '@nestjs/swagger';
 import { ProfilesService } from './profiles.service';
-import { CreateProfileDto } from './dto/create-profile.dto';
+import { SaveProfileDraftDto } from './dto/save-profile-draft.dto';
+import { SavePreferencesDraftDto } from './dto/save-preferences-draft.dto';
+import { SaveInterestsDraftDto } from './dto/save-interests-draft.dto';
+import { UpsertOnboardingDraftResponseDto } from '../onboarding/dto/upsert-onboarding-draft-response.dto';
+import { ProfileResponseDto, ProfilePhotoResponseDto } from './dto/profile-response.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { ProfileResponseDto } from './dto/profile-response.dto';
-import { AuthGuard } from '../auth/auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { OwnershipGuard } from '../auth/ownership.guard';
-import { Roles } from '../auth/decorators';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { SetPhotosDto } from './dto/set-photos.dto';
+import { Public } from '../auth/public.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../users/entities/user.entity';
-import { Gender } from './entities/profile.entity';
 
-@ApiTags('profiles')
-@Controller('profiles')
-  @UseGuards(AuthGuard)
-@ApiBearerAuth()
+@ApiTags('Profiles')
+@Controller()
 export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Create a new profile' })
+  @Post('profiles/draft')
+  @Public()
+  @ApiOperation({ summary: 'Enregistrer les informations principales du profil dans le draft' })
   @ApiResponse({
-    status: 201,
-    description: 'Profile created successfully',
-    type: ProfileResponseDto,
+    status: 200,
+    description: 'Draft mis à jour',
+    type: UpsertOnboardingDraftResponseDto,
   })
+  saveProfileDraft(
+    @Body() dto: SaveProfileDraftDto,
+  ): Promise<UpsertOnboardingDraftResponseDto> {
+    return this.profilesService.saveProfileDraft(dto);
+  }
+
+  @Post('profiles/draft/preferences')
+  @Public()
+  @ApiOperation({ summary: 'Enregistrer les préférences (âge/distance) dans le draft' })
   @ApiResponse({
-    status: 409,
-    description: 'Profile already exists for this user',
+    status: 200,
+    description: 'Draft mis à jour',
+    type: UpsertOnboardingDraftResponseDto,
   })
+  savePreferencesDraft(
+    @Body() dto: SavePreferencesDraftDto,
+  ): Promise<UpsertOnboardingDraftResponseDto> {
+    return this.profilesService.savePreferencesDraft(dto);
+  }
+
+  @Post('profiles/draft/interests')
+  @Public()
+  @ApiOperation({ summary: 'Enregistrer les centres d’intérêt dans le draft' })
   @ApiResponse({
-    status: 400,
-    description: 'Invalid input data',
+    status: 200,
+    description: 'Draft mis à jour',
+    type: UpsertOnboardingDraftResponseDto,
   })
-  async create(
-    @Body() createProfileDto: CreateProfileDto,
-    @CurrentUser() currentUser: User,
+  saveInterestsDraft(
+    @Body() dto: SaveInterestsDraftDto,
+  ): Promise<UpsertOnboardingDraftResponseDto> {
+    return this.profilesService.saveInterestsDraft(dto);
+  }
+
+  @Get('users/me/profile')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Récupérer le profil complet de l’utilisateur connecté' })
+  @ApiResponse({ status: 200, type: ProfileResponseDto })
+  getMyProfile(@CurrentUser() user: User): Promise<ProfileResponseDto> {
+    return this.profilesService.getCurrentUserProfile(user.id);
+  }
+
+  @Put('users/me/profile')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Mettre à jour les informations principales du profil (post-auth)' })
+  @ApiResponse({ status: 200, type: ProfileResponseDto })
+  updateMyProfile(
+    @CurrentUser() user: User,
+    @Body() dto: UpdateProfileDto,
   ): Promise<ProfileResponseDto> {
-    return this.profilesService.create(currentUser.id, createProfileDto);
+    return this.profilesService.updateCurrentUserProfile(user.id, dto);
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Get all profiles' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of all profiles',
-    type: [ProfileResponseDto],
-  })
-  async findAll(): Promise<ProfileResponseDto[]> {
-    return this.profilesService.findAll();
-  }
-
-  @Get('search')
-  @ApiOperation({ summary: 'Search profiles' })
-  @ApiQuery({
-    name: 'q',
-    description: 'Search query',
-    example: 'hiking',
-    required: false,
-  })
-  @ApiQuery({
-    name: 'gender',
-    description: 'Gender filter',
-    enum: Gender,
-    required: false,
-  })
-  @ApiQuery({
-    name: 'minAge',
-    description: 'Minimum age',
-    example: 20,
-    required: false,
-  })
-  @ApiQuery({
-    name: 'maxAge',
-    description: 'Maximum age',
-    example: 35,
-    required: false,
-  })
-  @ApiQuery({
-    name: 'city',
-    description: 'City filter',
-    example: 'Paris',
-    required: false,
-  })
-  @ApiQuery({
-    name: 'limit',
-    description: 'Maximum number of results',
-    example: 20,
-    required: false,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Search results',
-    type: [ProfileResponseDto],
-  })
-  async searchProfiles(
-    @Query('q') query?: string,
-    @Query('gender') gender?: Gender,
-    @Query('minAge') minAge?: number,
-    @Query('maxAge') maxAge?: number,
-    @Query('city') city?: string,
-    @Query('limit') limit?: number,
-  ): Promise<ProfileResponseDto[]> {
-    const ageRange =
-      minAge && maxAge ? { min: minAge, max: maxAge } : undefined;
-    return this.profilesService.searchProfiles(
-      query || '',
-      gender,
-      ageRange,
-      city,
-      limit,
-    );
-  }
-
-  @Get('nearby')
-  @ApiOperation({ summary: 'Find nearby profiles' })
-  @ApiQuery({
-    name: 'latitude',
-    description: 'Latitude coordinate',
-    example: 48.8566,
-  })
-  @ApiQuery({
-    name: 'longitude',
-    description: 'Longitude coordinate',
-    example: 2.3522,
-  })
-  @ApiQuery({
-    name: 'maxDistance',
-    description: 'Maximum distance in kilometers',
-    example: 25,
-  })
-  @ApiQuery({
-    name: 'limit',
-    description: 'Maximum number of results',
-    example: 20,
-    required: false,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Nearby profiles',
-    type: [ProfileResponseDto],
-  })
-  async findNearbyProfiles(
-    @Query('latitude') latitude: number,
-    @Query('longitude') longitude: number,
-    @Query('maxDistance') maxDistance: number,
-    @Query('limit') limit?: number,
-  ): Promise<ProfileResponseDto[]> {
-    return this.profilesService.findNearbyProfiles(
-      latitude,
-      longitude,
-      maxDistance,
-      limit,
-    );
-  }
-
-  @Get('my')
-  @ApiOperation({ summary: 'Get current user profile' })
-  @ApiResponse({
-    status: 200,
-    description: 'Current user profile',
-    type: ProfileResponseDto,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Profile not found',
-  })
-  async getMyProfile(
-    @CurrentUser() currentUser: User,
-  ): Promise<ProfileResponseDto | null> {
-    return this.profilesService.findByUserId(currentUser.id);
-  }
-
-  @Get(':id')
-  @UseGuards(OwnershipGuard)
-  @ApiOperation({ summary: 'Get profile by ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Profile found',
-    type: ProfileResponseDto,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Profile not found',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - Can only access own profile',
-  })
-  async findOne(@Param('id') id: string): Promise<ProfileResponseDto> {
-    return this.profilesService.findOne(id);
-  }
-
-  @Patch(':id')
-  @UseGuards(OwnershipGuard)
-  @ApiOperation({ summary: 'Update profile' })
-  @ApiResponse({
-    status: 200,
-    description: 'Profile updated successfully',
-    type: ProfileResponseDto,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Profile not found',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - Can only update own profile',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid input data',
-  })
-  async update(
-    @Param('id') id: string,
-    @Body() updateProfileDto: UpdateProfileDto,
-    @CurrentUser() currentUser: User,
+  @Put('users/me/preferences')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Mettre à jour les préférences de recherche (post-auth)' })
+  @ApiResponse({ status: 200, type: ProfileResponseDto })
+  updateMyPreferences(
+    @CurrentUser() user: User,
+    @Body() dto: UpdatePreferencesDto,
   ): Promise<ProfileResponseDto> {
-    return this.profilesService.update(id, updateProfileDto, currentUser.id);
+    return this.profilesService.updateCurrentUserPreferences(user.id, dto);
   }
 
-  @Delete(':id')
-  @UseGuards(OwnershipGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete profile (soft delete)' })
-  @ApiResponse({
-    status: 204,
-    description: 'Profile deleted successfully',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Profile not found',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - Can only delete own profile',
-  })
-  async remove(
-    @Param('id') id: string,
-    @CurrentUser() currentUser: User,
-  ): Promise<void> {
-    return this.profilesService.remove(id, currentUser.id);
-  }
-
-  @Patch(':id/verify')
-  @Roles('admin')
-  @UseGuards(RolesGuard)
-  @ApiOperation({ summary: 'Verify profile (admin only)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Profile verified successfully',
-    type: ProfileResponseDto,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Profile not found',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - Admin role required',
-  })
-  async verifyProfile(@Param('id') id: string): Promise<ProfileResponseDto> {
-    return this.profilesService.verifyProfile(id);
-  }
-
-  @Delete(':id/hard')
-  @Roles('admin')
-  @UseGuards(RolesGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Permanently delete profile (admin only)' })
-  @ApiResponse({
-    status: 204,
-    description: 'Profile permanently deleted',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Profile not found',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - Admin role required',
-  })
-  async hardDelete(@Param('id') id: string): Promise<void> {
-    return this.profilesService.hardDelete(id);
+  @Post('users/me/photos')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Définir l’ordre des photos (1 à 3)' })
+  @ApiResponse({ status: 200, type: [ProfilePhotoResponseDto] })
+  setMyPhotos(
+    @CurrentUser() user: User,
+    @Body() dto: SetPhotosDto,
+  ): Promise<ProfilePhotoResponseDto[]> {
+    return this.profilesService.setUserPhotos(user.id, dto);
   }
 }

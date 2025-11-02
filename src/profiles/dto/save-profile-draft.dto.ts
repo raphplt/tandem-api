@@ -1,12 +1,15 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
+  ArrayNotEmpty,
   IsArray,
   IsDateString,
   IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -14,35 +17,43 @@ import {
 import { Transform } from 'class-transformer';
 import { Gender } from '../entities/profile.entity';
 
-export class UpdateProfileDto {
-  @ApiPropertyOptional({ description: 'Prénom' })
-  @IsOptional()
+export class SaveProfileDraftDto {
+  @ApiProperty({ description: 'Identifiant du draft onboarding' })
+  @IsUUID()
+  draftId: string;
+
+  @ApiProperty({ description: 'Jeton du draft pour authentifier la mise à jour' })
   @IsString()
+  @IsNotEmpty()
+  draftToken: string;
+
+  @ApiProperty({ description: 'Prénom déclaré' })
+  @IsString()
+  @IsNotEmpty()
   @MaxLength(64)
-  firstName?: string;
+  firstName: string;
 
-  @ApiPropertyOptional({ description: 'Date de naissance (ISO)' })
-  @IsOptional()
+  @ApiProperty({ description: 'Date de naissance (format ISO)', example: '1995-06-15' })
   @IsDateString()
-  birthdate?: string;
+  birthdate: string;
 
-  @ApiPropertyOptional({ description: 'Genre', enum: Gender })
-  @IsOptional()
+  @ApiProperty({ description: 'Genre', enum: Gender })
   @IsEnum(Gender)
-  gender?: Gender;
+  gender: Gender;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Genres recherchés',
     enum: Gender,
     isArray: true,
+    example: [Gender.FEMALE, Gender.MALE],
   })
-  @IsOptional()
   @IsArray()
+  @ArrayNotEmpty()
   @ArrayMaxSize(3)
   @IsEnum(Gender, { each: true })
-  seeking?: Gender[];
+  seeking: Gender[];
 
-  @ApiPropertyOptional({ description: 'Intention principale' })
+  @ApiPropertyOptional({ description: 'Intention principale', maxLength: 64 })
   @IsOptional()
   @IsString()
   @MaxLength(64)
@@ -76,7 +87,7 @@ export class UpdateProfileDto {
   @Max(180)
   lng?: number;
 
-  @ApiPropertyOptional({ description: 'Bio courte' })
+  @ApiPropertyOptional({ description: 'Bio courte (140 chars max)' })
   @IsOptional()
   @IsString()
   @MaxLength(140)

@@ -1,350 +1,416 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
-  ConflictException,
-  BadRequestException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Profile, Gender, ProfileVisibility } from './entities/profile.entity';
-import { CreateProfileDto } from './dto/create-profile.dto';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  Repository,
+} from 'typeorm';
+import { Profile, Gender } from './entities/profile.entity';
+import { ProfilePreference } from './entities/profile-preference.entity';
+import { User } from '../users/entities/user.entity';
+import { Interest } from '../interests/entities/interest.entity';
+import { Photo } from '../users/entities/photo.entity';
+import { OnboardingService } from '../onboarding/onboarding.service';
+import { SaveProfileDraftDto } from './dto/save-profile-draft.dto';
+import { SavePreferencesDraftDto } from './dto/save-preferences-draft.dto';
+import { SaveInterestsDraftDto } from './dto/save-interests-draft.dto';
+import { UpsertOnboardingDraftResponseDto } from '../onboarding/dto/upsert-onboarding-draft-response.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { ProfileResponseDto } from './dto/profile-response.dto';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { SetPhotosDto } from './dto/set-photos.dto';
+import { ProfileResponseDto, ProfilePhotoResponseDto } from './dto/profile-response.dto';
+
+const MIN_ADULT_AGE = 18;
 
 @Injectable()
 export class ProfilesService {
-  private readonly MIN_AGE = 18;
-  private readonly MAX_AGE = 100;
-  private readonly MIN_BIO_LENGTH = 10;
-  private readonly MAX_BIO_LENGTH = 500;
-  private readonly MAX_DISTANCE = 1000; // km
-
-  constructor(
+  constructor
+  (
     @InjectRepository(Profile)
-    private profileRepository: Repository<Profile>,
+    private readonly profileRepository: Repository<Profile>,
+    @InjectRepository(ProfilePreference)
+    private readonly preferenceRepository: Repository<ProfilePreference>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    @InjectRepository(Interest)
+    private readonly interestRepository: Repository<Interest>,
+    @InjectRepository(Photo)
+    private readonly photoRepository: Repository<Photo>,
+    private readonly onboardingService: OnboardingService,
+    private readonly dataSource: DataSource,
   ) {}
 
-  async create(
-    userId: string,
-    createProfileDto: CreateProfileDto,
-  ): Promise<ProfileResponseDto> {
-    const existingProfile = await this.profileRepository.findOne({
-      where: { userId },
-    });
+  async saveProfileDraft(
+    dto: SaveProfileDraftDto,
+  ): Promise<UpsertOnboardingDraftResponseDto> {
+    const draft = await this.onboardingService.assertDraftById(
+      dto.draftId,
+      dto.draftToken,
+    );
 
-    if (existingProfile) {
-      throw new ConflictException('Profile already exists for this user');
+    const birthdate = new Date(dto.birthdate);
+    if (!this.isAdult(birthdate)) {
+      throw new BadRequestException('L’utilisateur doit avoir au moins 18 ans');
     }
 
-    this.validateProfileData(createProfileDto);
+    const payloadPatch = {
+      profile: {
+        firstName: dto.firstName.trim(),
+        birthdate: birthdate.toISOString().split('T')[0],
+        gender: dto.gender,
+        seeking: dto.seeking,
+        intention: dto.intention ?? null,
+        city: dto.city ?? null,
+        country: dto.country ?? null,
+        lat: dto.lat ?? null,
+        lng: dto.lng ?? null,
+        bio: dto.bio ?? null,
+      },
+    };
 
-    const profile = this.profileRepository.create({
-      userId,
-      ...createProfileDto,
-      isComplete: this.isProfileComplete(createProfileDto),
-    });
-
-    const savedProfile = await this.profileRepository.save(profile);
-    return this.mapToResponseDto(savedProfile);
-  }
-
-  async findAll(): Promise<ProfileResponseDto[]> {
-    const profiles = await this.profileRepository.find({
-      where: { isActive: true },
-      order: { createdAt: 'DESC' },
-    });
-
-    return profiles.map((profile) => this.mapToResponseDto(profile));
-  }
-
-  async findOne(id: string): Promise<ProfileResponseDto> {
-    const profile = await this.profileRepository.findOne({
-      where: { id },
-    });
-
-    if (!profile) {
-      throw new NotFoundException(`Profile with ID ${id} not found`);
-    }
-
-    return this.mapToResponseDto(profile);
-  }
-
-  async findByUserId(userId: string): Promise<ProfileResponseDto | null> {
-    const profile = await this.profileRepository.findOne({
-      where: { userId },
-    });
-
-    if (!profile) {
-      return null;
-    }
-
-    return this.mapToResponseDto(profile);
-  }
-
-  async update(
-    id: string,
-    updateProfileDto: UpdateProfileDto,
-    currentUserId?: string,
-  ): Promise<ProfileResponseDto> {
-    const profile = await this.profileRepository.findOne({
-      where: { id },
-    });
-
-    if (!profile) {
-      throw new NotFoundException(`Profile with ID ${id} not found`);
-    }
-
-    if (currentUserId && profile.userId !== currentUserId) {
-      throw new ForbiddenException('You can only update your own profile');
-    }
-
-    // Validate updated data
-    if (updateProfileDto.age !== undefined) {
-      this.validateAge(updateProfileDto.age);
-    }
-
-    if (updateProfileDto.bio !== undefined) {
-      this.validateBio(updateProfileDto.bio);
-    }
-
-    if (updateProfileDto.interestedIn !== undefined) {
-      this.validateInterestedIn(updateProfileDto.interestedIn);
-    }
-
-    if (updateProfileDto.preferences?.maxDistance !== undefined) {
-      this.validateMaxDistance(updateProfileDto.preferences.maxDistance);
-    }
-
-    // Update profile
-    await this.profileRepository.update(id, updateProfileDto);
-
-    const updatedProfile = await this.profileRepository.findOne({
-      where: { id },
-    });
-
-    return this.mapToResponseDto(updatedProfile!);
-  }
-
-  async remove(id: string, currentUserId?: string): Promise<void> {
-    const profile = await this.profileRepository.findOne({
-      where: { id },
-    });
-
-    if (!profile) {
-      throw new NotFoundException(`Profile with ID ${id} not found`);
-    }
-
-    // Check if user is trying to delete someone else's profile
-    if (currentUserId && profile.userId !== currentUserId) {
-      throw new ForbiddenException('You can only delete your own profile');
-    }
-
-    // Soft delete by deactivating the profile
-    await this.profileRepository.update(id, { isActive: false });
-  }
-
-  async hardDelete(id: string): Promise<void> {
-    const profile = await this.profileRepository.findOne({
-      where: { id },
-    });
-
-    if (!profile) {
-      throw new NotFoundException(`Profile with ID ${id} not found`);
-    }
-
-    await this.profileRepository.remove(profile);
-  }
-
-  async incrementViewCount(id: string): Promise<void> {
-    await this.profileRepository.increment({ id }, 'viewCount', 1);
-  }
-
-  async incrementLikeCount(id: string): Promise<void> {
-    await this.profileRepository.increment({ id }, 'likeCount', 1);
-  }
-
-  async incrementMatchCount(id: string): Promise<void> {
-    await this.profileRepository.increment({ id }, 'matchCount', 1);
-  }
-
-  async verifyProfile(id: string): Promise<ProfileResponseDto> {
-    const profile = await this.profileRepository.findOne({
-      where: { id },
-    });
-
-    if (!profile) {
-      throw new NotFoundException(`Profile with ID ${id} not found`);
-    }
-
-    await this.profileRepository.update(id, { isVerified: true });
-    const updatedProfile = await this.profileRepository.findOne({
-      where: { id },
-    });
-
-    return this.mapToResponseDto(updatedProfile!);
-  }
-
-  async searchProfiles(
-    query: string,
-    gender?: Gender,
-    ageRange?: { min: number; max: number },
-    city?: string,
-    limit = 20,
-  ): Promise<ProfileResponseDto[]> {
-    const queryBuilder = this.profileRepository
-      .createQueryBuilder('profile')
-      .where('profile.isActive = :isActive', { isActive: true })
-      .andWhere('profile.visibility = :visibility', {
-        visibility: ProfileVisibility.PUBLIC,
+    const { draft: updatedDraft, draftToken } =
+      await this.onboardingService.upsertDraft({
+        deviceId: draft.deviceId,
+        draftToken: dto.draftToken,
+        payload: payloadPatch,
       });
 
-    if (query) {
-      queryBuilder.andWhere(
-        '(profile.bio ILIKE :query OR profile.city ILIKE :query)',
-        { query: `%${query}%` },
-      );
-    }
-
-    if (gender) {
-      queryBuilder.andWhere(':gender = ANY(profile.interestedIn)', { gender });
-    }
-
-    if (ageRange) {
-      queryBuilder.andWhere('profile.age BETWEEN :minAge AND :maxAge', {
-        minAge: ageRange.min,
-        maxAge: ageRange.max,
-      });
-    }
-
-    if (city) {
-      queryBuilder.andWhere('profile.city ILIKE :city', { city: `%${city}%` });
-    }
-
-    const profiles = await queryBuilder
-      .orderBy('profile.createdAt', 'DESC')
-      .limit(limit)
-      .getMany();
-
-    return profiles.map((profile) => this.mapToResponseDto(profile));
-  }
-
-  async findNearbyProfiles(
-    latitude: number,
-    longitude: number,
-    maxDistance: number,
-    limit = 20,
-  ): Promise<ProfileResponseDto[]> {
-    // Using PostGIS extension for geographic queries
-    // This is a simplified version - in production, you'd use proper PostGIS functions
-    const profiles = await this.profileRepository
-      .createQueryBuilder('profile')
-      .where('profile.isActive = :isActive', { isActive: true })
-      .andWhere('profile.visibility = :visibility', {
-        visibility: ProfileVisibility.PUBLIC,
-      })
-      .andWhere('profile.location IS NOT NULL')
-      .andWhere(
-        `ST_DWithin(
-          ST_Point(profile.location->>'longitude', profile.location->>'latitude')::geography,
-          ST_Point(:longitude, :latitude)::geography,
-          :maxDistance
-        )`,
-        { latitude, longitude, maxDistance: maxDistance * 1000 }, // Convert km to meters
-      )
-      .orderBy('profile.createdAt', 'DESC')
-      .limit(limit)
-      .getMany();
-
-    return profiles.map((profile) => this.mapToResponseDto(profile));
-  }
-
-  private validateProfileData(profileData: CreateProfileDto): void {
-    this.validateAge(profileData.age);
-    this.validateBio(profileData.bio);
-    this.validateInterestedIn(profileData.interestedIn);
-
-    if (profileData.preferences?.maxDistance) {
-      this.validateMaxDistance(profileData.preferences.maxDistance);
-    }
-  }
-
-  private validateAge(age: number): void {
-    if (age < this.MIN_AGE || age > this.MAX_AGE) {
-      throw new BadRequestException(
-        `Age must be between ${this.MIN_AGE} and ${this.MAX_AGE}`,
-      );
-    }
-  }
-
-  private validateBio(bio: string): void {
-    if (bio.length < this.MIN_BIO_LENGTH || bio.length > this.MAX_BIO_LENGTH) {
-      throw new BadRequestException(
-        `Bio must be between ${this.MIN_BIO_LENGTH} and ${this.MAX_BIO_LENGTH} characters`,
-      );
-    }
-  }
-
-  private validateInterestedIn(interestedIn: Gender[]): void {
-    if (!interestedIn || interestedIn.length === 0) {
-      throw new BadRequestException(
-        'At least one gender preference is required',
-      );
-    }
-
-    const validGenders = Object.values(Gender);
-    for (const gender of interestedIn) {
-      if (!validGenders.includes(gender)) {
-        throw new BadRequestException(`Invalid gender preference: ${gender}`);
-      }
-    }
-  }
-
-  private validateMaxDistance(maxDistance: number): void {
-    if (maxDistance < 1 || maxDistance > this.MAX_DISTANCE) {
-      throw new BadRequestException(
-        `Max distance must be between 1 and ${this.MAX_DISTANCE} km`,
-      );
-    }
-  }
-
-  private isProfileComplete(profileData: CreateProfileDto): boolean {
-    return !!(
-      profileData.bio &&
-      profileData.city &&
-      profileData.age &&
-      profileData.gender &&
-      profileData.photoUrl &&
-      profileData.interestedIn.length > 0
+    return UpsertOnboardingDraftResponseDto.fromEntity(
+      updatedDraft,
+      draftToken,
     );
   }
 
-  private mapToResponseDto(profile: Profile): ProfileResponseDto {
+  async savePreferencesDraft(
+    dto: SavePreferencesDraftDto,
+  ): Promise<UpsertOnboardingDraftResponseDto> {
+    const draft = await this.onboardingService.assertDraftById(
+      dto.draftId,
+      dto.draftToken,
+    );
+
+    if (dto.ageMin > dto.ageMax) {
+      throw new BadRequestException('ageMin doit être inférieur à ageMax');
+    }
+
+    const payloadPatch = {
+      preferences: {
+        ageMin: dto.ageMin,
+        ageMax: dto.ageMax,
+        distanceKm: dto.distanceKm,
+      },
+    };
+
+    const { draft: updatedDraft, draftToken } =
+      await this.onboardingService.upsertDraft({
+        deviceId: draft.deviceId,
+        draftToken: dto.draftToken,
+        payload: payloadPatch,
+      });
+
+    return UpsertOnboardingDraftResponseDto.fromEntity(
+      updatedDraft,
+      draftToken,
+    );
+  }
+
+  async saveInterestsDraft(
+    dto: SaveInterestsDraftDto,
+  ): Promise<UpsertOnboardingDraftResponseDto> {
+    const draft = await this.onboardingService.assertDraftById(
+      dto.draftId,
+      dto.draftToken,
+    );
+
+    const interests = await this.interestRepository.find({
+      where: { name: In(dto.interestSlugs) },
+    });
+
+    if (interests.length !== dto.interestSlugs.length) {
+      throw new BadRequestException('Un ou plusieurs intérêts sont invalides');
+    }
+
+    const payloadPatch = {
+      interests: dto.interestSlugs,
+    };
+
+    const { draft: updatedDraft, draftToken } =
+      await this.onboardingService.upsertDraft({
+        deviceId: draft.deviceId,
+        draftToken: dto.draftToken,
+        payload: payloadPatch,
+      });
+
+    return UpsertOnboardingDraftResponseDto.fromEntity(
+      updatedDraft,
+      draftToken,
+    );
+  }
+
+  async getCurrentUserProfile(userId: string): Promise<ProfileResponseDto> {
+    const aggregate = await this.loadAggregate(userId);
+    return this.mapToResponseDto(aggregate.user);
+  }
+
+  async updateCurrentUserProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+  ): Promise<ProfileResponseDto> {
+    return this.dataSource.transaction(async (manager) => {
+      const aggregate = await this.loadAggregate(userId, manager, {
+        ensureProfile: true,
+      });
+
+      const { user } = aggregate;
+      const profileRepo = manager.getRepository(Profile);
+      let profile = user.profile!;
+
+      if (dto.firstName !== undefined) {
+        profile.firstName = dto.firstName.trim();
+        user.firstName = dto.firstName.trim();
+      }
+
+      if (dto.birthdate !== undefined) {
+        const birthdate = new Date(dto.birthdate);
+        if (!this.isAdult(birthdate)) {
+          throw new BadRequestException('L’utilisateur doit avoir au moins 18 ans');
+        }
+        profile.birthdate = birthdate;
+      }
+
+      if (dto.gender !== undefined) {
+        profile.gender = dto.gender;
+      }
+
+      if (dto.seeking !== undefined) {
+        if (!dto.seeking.length) {
+          throw new BadRequestException('La liste seeking ne peut pas être vide');
+        }
+        profile.interestedIn = dto.seeking;
+      }
+
+      if (dto.intention !== undefined) {
+        profile.intention = dto.intention;
+      }
+
+      if (dto.city !== undefined) {
+        profile.city = dto.city;
+      }
+
+      if (dto.country !== undefined) {
+        profile.country = dto.country;
+      }
+
+      if (dto.lat !== undefined) {
+        profile.lat = dto.lat;
+      }
+
+      if (dto.lng !== undefined) {
+        profile.lng = dto.lng;
+      }
+
+      if (dto.bio !== undefined) {
+        profile.bio = dto.bio;
+      }
+
+      profile.publishedAt = profile.publishedAt ?? new Date();
+
+      await profileRepo.save(profile);
+      await manager.getRepository(User).save(user);
+
+      const refreshed = await this.loadAggregate(userId, manager);
+      return this.mapToResponseDto(refreshed.user);
+    });
+  }
+
+  async updateCurrentUserPreferences(
+    userId: string,
+    dto: UpdatePreferencesDto,
+  ): Promise<ProfileResponseDto> {
+    return this.dataSource.transaction(async (manager) => {
+      const aggregate = await this.loadAggregate(userId, manager, {
+        ensureProfile: true,
+      });
+
+      let preference = aggregate.user.preference;
+      const preferenceRepo = manager.getRepository(ProfilePreference);
+
+      if (!preference) {
+        preference = preferenceRepo.create({
+          userId,
+          ageMin: dto.ageMin ?? 25,
+          ageMax: dto.ageMax ?? 35,
+          distanceKm: dto.distanceKm ?? 50,
+        });
+      }
+
+      if (dto.ageMin !== undefined) {
+        preference.ageMin = dto.ageMin;
+      }
+
+      if (dto.ageMax !== undefined) {
+        if (dto.ageMin !== undefined && dto.ageMin > dto.ageMax) {
+          throw new BadRequestException('ageMin doit être inférieur à ageMax');
+        }
+        preference.ageMax = dto.ageMax;
+      }
+
+      if (dto.distanceKm !== undefined) {
+        preference.distanceKm = dto.distanceKm;
+      }
+
+      if (preference.ageMin > preference.ageMax) {
+        throw new BadRequestException('ageMin doit être inférieur à ageMax');
+      }
+
+      aggregate.user.preference = await preferenceRepo.save(preference);
+
+      const refreshed = await this.loadAggregate(userId, manager);
+      return this.mapToResponseDto(refreshed.user);
+    });
+  }
+
+  async setUserPhotos(
+    userId: string,
+    dto: SetPhotosDto,
+  ): Promise<ProfilePhotoResponseDto[]> {
+    if (!dto.photos.length) {
+      throw new BadRequestException('Au moins une photo est requise');
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const aggregate = await this.loadAggregate(userId, manager, {
+        ensureProfile: true,
+      });
+
+      const photoRepo = manager.getRepository(Photo);
+      const profileRepo = manager.getRepository(Profile);
+      await photoRepo.delete({ userId });
+
+      const photos = dto.photos.map((url, index) =>
+        photoRepo.create({
+          userId,
+          url,
+          position: index + 1,
+          isActive: true,
+        }),
+      );
+
+      await photoRepo.save(photos);
+
+      aggregate.user.photos = photos;
+      const profile = aggregate.user.profile!;
+      profile.photoUrl = photos[0]?.url;
+      profile.photoPublicId = undefined;
+      await profileRepo.save(profile);
+
+      return photos
+        .sort((a, b) => a.position - b.position)
+        .map((photo) => ({ url: photo.url, position: photo.position }));
+    });
+  }
+
+  private isAdult(birthdate: Date): boolean {
+    const now = new Date();
+    const age =
+      now.getFullYear() - birthdate.getFullYear() -
+      (now <
+        new Date(
+          birthdate.getFullYear() + now.getFullYear() - birthdate.getFullYear(),
+          birthdate.getMonth(),
+          birthdate.getDate(),
+        )
+        ? 1
+        : 0);
+    return age >= MIN_ADULT_AGE;
+  }
+
+  private async loadAggregate(
+    userId: string,
+    manager?: EntityManager,
+    options?: { ensureProfile?: boolean },
+  ): Promise<{ user: User }> {
+    const repo = manager?.getRepository(User) ?? this.userRepository;
+    const user = await repo.findOne({
+      where: { id: userId },
+      relations: [
+        'profile',
+        'profile.interests',
+        'profile.values',
+        'preference',
+        'photos',
+      ],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+
+    if (!user.profile) {
+      if (options?.ensureProfile) {
+        const profileRepo = (manager?.getRepository(Profile) ?? this.profileRepository);
+        const profile = profileRepo.create({
+          userId,
+          firstName: user.firstName ?? '',
+          birthdate: user.dateOfBirth ?? new Date('1990-01-01'),
+          gender: Gender.PREFER_NOT_TO_SAY,
+          interestedIn: [Gender.PREFER_NOT_TO_SAY],
+          isActive: true,
+        });
+        user.profile = await profileRepo.save(profile);
+      } else {
+        throw new NotFoundException('Profil introuvable');
+      }
+    }
+
+    return { user };
+  }
+
+  private mapToResponseDto(user: User): ProfileResponseDto {
+    const profile = user.profile!;
+    const preference = user.preference;
+    const photos = (user.photos ?? []).sort((a, b) => a.position - b.position);
+    const profileInterests = profile.interests ?? [];
+    const jsonPreferences = profile.preferences;
+
+    const ageMin =
+      preference?.ageMin ?? jsonPreferences?.ageRange?.min ?? 25;
+    const ageMax =
+      preference?.ageMax ?? jsonPreferences?.ageRange?.max ?? 35;
+    const distanceKm =
+      preference?.distanceKm ?? jsonPreferences?.maxDistance ?? 50;
+
+    const birthdate =
+      profile.birthdate?.toISOString().split('T')[0];
+
     return {
-      id: profile.id,
-      userId: profile.userId,
-      bio: profile.bio || '',
-      city: profile.city || '',
-      country: profile.country,
-      age: profile.age || 0,
-      gender: profile.gender || ('prefer_not_to_say' as any),
-      interestedIn: profile.interestedIn,
-      photoUrl: profile.photoUrl,
-      visibility: profile.visibility,
-      isActive: profile.isActive,
-      isComplete: profile.isComplete,
-      isVerified: profile.isVerified,
-      preferences: profile.preferences,
-      socialLinks: profile.socialLinks,
-      location: profile.location,
-      viewCount: profile.viewCount,
-      likeCount: profile.likeCount,
-      matchCount: profile.matchCount,
-      createdAt: profile.createdAt,
-      updatedAt: profile.updatedAt,
-      isProfileComplete: profile.isProfileComplete,
-      ageRange: profile.ageRange,
-      maxDistance: profile.maxDistance,
+      userId: user.id,
+      firstName: profile.firstName ?? undefined,
+      birthdate,
+      gender: profile.gender ?? undefined,
+      seeking: profile.interestedIn ?? [],
+      intention: profile.intention ?? undefined,
+      city: profile.city ?? undefined,
+      country: profile.country ?? undefined,
+      lat: profile.lat ?? undefined,
+      lng: profile.lng ?? undefined,
+      bio: profile.bio ?? undefined,
+      publishedAt: profile.publishedAt ?? undefined,
+      preferences: {
+        ageMin,
+        ageMax,
+        distanceKm,
+      },
+      interests: profileInterests.map((interest) => interest.name),
+      photos: photos.map((photo) => ({
+        url: photo.url,
+        position: photo.position,
+      })),
     };
   }
 }
