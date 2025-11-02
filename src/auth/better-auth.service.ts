@@ -93,4 +93,18 @@ export class BetterAuthService {
       headers: this.toFetchHeaders(headers),
     });
   }
+
+  async refreshSession(headers: Record<string, unknown>): Promise<any | null> {
+    const authHeader = (headers.authorization as string | undefined) ?? '';
+    if (!authHeader || !authHeader.trim()) {
+      return null;
+    }
+
+    return this.auth.api.getSession({
+      headers: this.toFetchHeaders(headers),
+      query: {
+        disableCookieCache: true,
+      },
+    });
+  }
 }

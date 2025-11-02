@@ -148,6 +148,21 @@ export class AuthService {
     }
   }
 
+  async refreshSession(headers: Request['headers']): Promise<AuthResponseDto> {
+    const refreshed = await this.betterAuthService.refreshSession(
+      headers as any,
+    );
+
+    if (!refreshed?.session || !refreshed?.user) {
+      throw new UnauthorizedException('Unauthorized');
+    }
+
+    const user = await this.ensureLocalUser(refreshed.user);
+    await this.updateUserLastLogin(user.id);
+
+    return this.buildAuthResponse(user, refreshed.session.token);
+  }
+
   async findUserByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { email } });
   }

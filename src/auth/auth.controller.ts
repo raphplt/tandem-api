@@ -79,6 +79,23 @@ export class AuthController {
     return { message: 'Successfully logged out' };
   }
 
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Refresh session token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Session refreshed successfully',
+    type: AuthResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  async refresh(@Req() req: Request): Promise<AuthResponseDto> {
+    return this.authService.refreshSession(req.headers);
+  }
+
   @Get('profile')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user profile' })

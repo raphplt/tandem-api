@@ -14,10 +14,11 @@ import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { OwnershipGuard } from '../auth/ownership.guard';
 import { CurrentUser } from '../auth/decorators';
 
 @Controller('messages')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, OwnershipGuard)
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 

@@ -2,19 +2,19 @@
 
 ## P0 — Bloquants immédiats
 
-- [ ] Sécuriser tous les contrôleurs REST sans garde (`matches`, `conversations`, `analytics`, `notifications`, `rewards`, `reports`, `push-tokens`) en appliquant `@UseGuards(AuthGuard)` et rôles adaptés.
+- [x] Sécuriser tous les contrôleurs REST sans garde (`matches`, `conversations`, `analytics`, `notifications`, `rewards`, `reports`, `push-tokens`) en appliquant `@UseGuards(AuthGuard)` et rôles adaptés.
 - [x] Forcer la configuration du secret Better Auth (`AUTH_SECRET`) et refuser le fallback "change-me-in-production" en production.
-- [ ] Activer réellement le rate limiting global en ajoutant `ThrottlerGuard` comme `APP_GUARD`.
-- [ ] Protéger l'accès Swagger `/api/docs` (auth basique ou désactivation hors dev).
+- [x] Activer réellement le rate limiting global en ajoutant `ThrottlerGuard` comme `APP_GUARD`.
+- [x] Protéger l'accès Swagger `/api/docs` (auth basique ou désactivation hors dev).
 - [x] Retirer le `console.log` de session dans `AuthService.getProfile`.
-- [ ] Corriger `MessagesController.findAll` pour empêcher l'accès massif aux messages (pagination + ownership + scopes).
+- [x] Corriger `MessagesController.findAll` pour empêcher l'accès massif aux messages (pagination + ownership + scopes).
 
 ## P1 — Sécurité & Auth (court terme)
 
-- [ ] Revoir `UsersController.create` (actuellement public) pour éviter la double inscription ou restreindre au rôle admin.
-- [ ] Étendre `OwnershipGuard`/règles d'accès aux routes identifiées par `conversationId`, `matchId`, `messageId`, etc.
-- [ ] Ajouter des règles métiers côté WebSocket (ex: seuls les participants peuvent supprimer/éditer un message).
-- [ ] Exposer un flux de refresh/rotation des tokens côté API si nécessaire (alignement avec Better Auth).
+- [x] Restreindre `UsersController.create` aux administrateurs pour éviter la double inscription côté API et laisser Better Auth gérer l'enrôlement public.
+- [x] Étendre `OwnershipGuard`/règles d'accès aux routes identifiées par `conversationId`, `matchId`, `messageId`, etc.
+- [x] Ajouter des règles métiers côté WebSocket (ex: seuls les participants peuvent supprimer/éditer un message).
+- [x] Exposer un flux de refresh/rotation des tokens côté API si nécessaire (alignement avec Better Auth). (faire attention à ne pas faire n'importe quoi, pour info on utiliser better auth et la stratégie BearerToken)
 
 ## P1 — Robustesse & Qualité technique
 

@@ -2,6 +2,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { User } from '../users/entities/user.entity';
+import { Profile } from '../profiles/entities/profile.entity';
+import { Availability } from '../availability/entities/availability.entity';
+import { Conversation } from '../conversations/entities/conversation.entity';
+import { Match } from '../matches/entities/match.entity';
+import { Message } from '../messages/entities/message.entity';
 import { BetterAuthUser } from './entities/better-auth-user.entity';
 import { BetterAuthSession } from './entities/better-auth-session.entity';
 import { BetterAuthAccount } from './entities/better-auth-account.entity';
@@ -21,6 +26,11 @@ import { WsAuthGuard } from './ws-auth.guard';
       BetterAuthUser,
       BetterAuthSession,
       BetterAuthAccount,
+      Profile,
+      Availability,
+      Conversation,
+      Match,
+      Message,
     ]),
     ConfigModule,
   ],

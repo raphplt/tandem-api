@@ -25,7 +25,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { OwnershipGuard } from '../auth/ownership.guard';
-import { Roles, Public } from '../auth/decorators';
+import { Roles } from '../auth/decorators';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from './entities/user.entity';
 
@@ -36,9 +36,9 @@ import { User } from './entities/user.entity';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  //TODO : doublon, a supprimer
   @Post()
-  @Public()
+  @Roles('admin')
+  @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Create a new user' })
   @ApiResponse({
     status: 201,
@@ -52,6 +52,10 @@ export class UsersController {
   @ApiResponse({
     status: 400,
     description: 'Invalid input data',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin role required',
   })
   async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
     return this.usersService.create(createUserDto);

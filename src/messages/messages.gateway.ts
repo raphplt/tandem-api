@@ -16,6 +16,8 @@ import { MessageStatus } from './entities/message.entity';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
+import { UpdateMessageWsDto } from './dto/update-message-ws.dto';
+import { DeleteMessageWsDto } from './dto/delete-message-ws.dto';
 import {
   MESSAGE_CREATED_EVENT,
   MESSAGE_DELETED_EVENT,
@@ -155,6 +157,57 @@ export class MessagesGateway
       return { status: 'ok', message };
     } catch (error) {
       throw this.toWsException(error, 'Unable to send message');
+    }
+  }
+
+  @SubscribeMessage('message.update')
+  async handleMessageUpdate(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody(new ValidationPipe({ transform: true, whitelist: true }))
+    payload: UpdateMessageWsDto,
+  ): Promise<{ status: 'ok'; message: MessageResponseDto }> {
+    const user = client.data.user;
+    if (!user) {
+      throw new WsException('Unauthorized');
+    }
+
+    try {
+      const updatedMessage = await this.messagesService.update(
+        payload.messageId,
+        payload.update,
+        user.id,
+      );
+
+      await client.join(updatedMessage.conversationId);
+
+      return { status: 'ok', message: updatedMessage };
+    } catch (error) {
+      throw this.toWsException(error, 'Unable to update message');
+    }
+  }
+
+  @SubscribeMessage('message.delete')
+  async handleMessageDelete(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody(new ValidationPipe({ transform: true, whitelist: true }))
+    payload: DeleteMessageWsDto,
+  ): Promise<{ status: 'ok'; message: MessageResponseDto }> {
+    const user = client.data.user;
+    if (!user) {
+      throw new WsException('Unauthorized');
+    }
+
+    try {
+      const deletedMessage = await this.messagesService.delete(
+        payload.messageId,
+        user.id,
+      );
+
+      await client.join(deletedMessage.conversationId);
+
+      return { status: 'ok', message: deletedMessage };
+    } catch (error) {
+      throw this.toWsException(error, 'Unable to delete message');
     }
   }
 
