@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { createAdapter, createAdapterFactory } from 'better-auth/adapters';
+import { createAdapterFactory } from 'better-auth/adapters';
 import { BetterAuthUser } from './entities/better-auth-user.entity';
 import { BetterAuthSession } from './entities/better-auth-session.entity';
 import { BetterAuthAccount } from './entities/better-auth-account.entity';
@@ -10,6 +10,8 @@ interface TypeORMAdapterConfig {
   debugLogs?: boolean;
 }
 
+//TODO : l'intégralité de ce fichier est à revoir pour mieux gérer les where complexes
+//Il faudrait faire beaucoup mieux et plus proprement
 @Injectable()
 export class TypeORMAdapter {
   constructor(

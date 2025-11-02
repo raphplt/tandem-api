@@ -45,10 +45,7 @@ export class BetterAuthService {
       advanced: {
         generateId: () => crypto.randomUUID(),
       },
-      secret:
-        this.configService.get('auth.secret') ||
-        process.env.AUTH_SECRET ||
-        'change-me-in-production',
+      secret: this.configService.get('auth.secret') || process.env.AUTH_SECRET,
       baseURL:
         this.configService.get('auth.baseURL') || 'http://localhost:3001',
       trustedOrigins: [

@@ -31,11 +31,12 @@ import { User } from './entities/user.entity';
 
 @ApiTags('users')
 @Controller('users')
-  @UseGuards(AuthGuard)
+@UseGuards(AuthGuard)
 @ApiBearerAuth()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  //TODO : doublon, a supprimer
   @Post()
   @Public()
   @ApiOperation({ summary: 'Create a new user' })

@@ -108,8 +108,6 @@ export class AuthService {
   }> {
     const session = await this.betterAuthService.getSession(headers as any);
 
-    console.log('Session:', session);
-
     if (!session?.user) {
       throw new UnauthorizedException('Unauthorized');
     }
