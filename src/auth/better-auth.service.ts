@@ -7,6 +7,7 @@ import { BetterAuthUser } from './entities/better-auth-user.entity';
 import { BetterAuthSession } from './entities/better-auth-session.entity';
 import { BetterAuthAccount } from './entities/better-auth-account.entity';
 import { TypeORMAdapter } from './typeorm-adapter';
+import { bearer } from 'better-auth/plugins';
 
 @Injectable()
 export class BetterAuthService {
@@ -31,6 +32,7 @@ export class BetterAuthService {
       database: typeORMAdapter.createAdapter({
         debugLogs: this.configService.get('NODE_ENV') === 'development',
       }),
+      plugins: [bearer()],
       emailAndPassword: {
         enabled: true,
         requireEmailVerification:
@@ -60,20 +62,38 @@ export class BetterAuthService {
   }
 
   /**
+   * Convert Express headers into Fetch Headers for Better Auth consumption.
+   */
+  private toFetchHeaders(headers: Record<string, unknown>): Headers {
+    const fetchHeaders = new Headers();
+
+    for (const [key, value] of Object.entries(headers)) {
+      if (typeof value === 'string') {
+        fetchHeaders.set(key, value);
+      } else if (Array.isArray(value)) {
+        const first = value.find((candidate) => typeof candidate === 'string');
+        if (first) {
+          fetchHeaders.set(key, first);
+        }
+      }
+    }
+
+    return fetchHeaders;
+  }
+
+  /**
    * Récupère la session via Better Auth en mode Bearer-only.
-   * On attend un header Authorization: Bearer <sessionToken> et on le
-   * transmet à Better Auth sous forme de cookie attendu par son API interne.
+   * On attend un header Authorization: Bearer <sessionToken> et Better Auth
+   * gère l'extraction grâce au plugin Bearer.
    */
   async getSession(headers: Record<string, unknown>): Promise<any | null> {
     const authHeader = (headers.authorization as string | undefined) ?? '';
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-
-    if (!token) {
+    if (!authHeader || !authHeader.trim()) {
       return null;
     }
 
-    return await this.auth.api.getSession({
-      headers: { cookie: `better-auth.session_token=${token}` } as any,
+    return this.auth.api.getSession({
+      headers: this.toFetchHeaders(headers),
     });
   }
 }

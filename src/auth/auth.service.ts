@@ -45,7 +45,7 @@ export class AuthService {
         lastName: registerDto.lastName,
       });
 
-  return this.buildAuthResponse(user, result.token ?? '');
+      return this.buildAuthResponse(user, result.token ?? '');
     } catch (error) {
       if (this.isDuplicateError(error)) {
         throw new ConflictException('User with this email already exists');
@@ -72,10 +72,10 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      const user = await this.ensureLocalUser(result.user);
-      await this.updateUserLastLogin(user.id);
+    const user = await this.ensureLocalUser(result.user);
+    await this.updateUserLastLogin(user.id);
 
-  return this.buildAuthResponse(user, result.token ?? '');
+    return this.buildAuthResponse(user, result.token ?? '');
     } catch (error) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -87,7 +87,9 @@ export class AuthService {
     const userId = (request as any).user?.id as string | undefined;
 
     try {
-      await authInstance.api.signOut({ headers: headers as any });
+      await authInstance.api.signOut({
+        headers: headers as any,
+      });
 
       if (userId) {
         await this.updateUserLastLogout(userId);
@@ -105,6 +107,8 @@ export class AuthService {
     roles: UserRole[];
   }> {
     const session = await this.betterAuthService.getSession(headers as any);
+
+    console.log('Session:', session);
 
     if (!session?.user) {
       throw new UnauthorizedException('Unauthorized');
