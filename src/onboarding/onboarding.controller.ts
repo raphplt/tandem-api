@@ -18,6 +18,7 @@ import { OnboardingService } from './onboarding.service';
 import { UpsertOnboardingDraftDto } from './dto/upsert-onboarding-draft.dto';
 import { UpsertOnboardingDraftResponseDto } from './dto/upsert-onboarding-draft-response.dto';
 import { OnboardingDraftResponseDto } from './dto/onboarding-draft-response.dto';
+import { Public } from '../auth/public.decorator';
 
 @ApiTags('Onboarding')
 @Controller('onboarding')
@@ -25,6 +26,7 @@ export class OnboardingController {
   constructor(private readonly onboardingService: OnboardingService) {}
 
   @Post('drafts')
+  @Public()
   @ApiOperation({
     summary: 'Créer ou mettre à jour un draft onboarding lié à un device',
   })
@@ -41,6 +43,7 @@ export class OnboardingController {
   }
 
   @Get('drafts/:deviceId')
+  @Public()
   @ApiOperation({
     summary: 'Récupérer un draft onboarding par device + token',
   })
