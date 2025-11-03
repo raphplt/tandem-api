@@ -24,11 +24,11 @@ import { InterestResponseDto } from './dto/interest-response.dto';
 import { InterestCategory } from './entities/interest.entity';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/decorators';
+import { Public, Roles } from '../auth/decorators';
 
 @ApiTags('interests')
 @ApiBearerAuth()
-  @UseGuards(AuthGuard)
+@UseGuards(AuthGuard)
 @Controller('interests')
 export class InterestsController {
   constructor(private readonly interestsService: InterestsService) {}
@@ -66,6 +66,7 @@ export class InterestsController {
   }
 
   @Get()
+  @Public()
   @ApiOperation({ summary: 'Get all interests' })
   @ApiResponse({
     status: 200,
