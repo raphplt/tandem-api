@@ -1,42 +1,42 @@
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: tandem-postgres
+    container_name: flint-postgres
     environment:
-      POSTGRES_DB: tandem_db
+      POSTGRES_DB: flint
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
       - "5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks: [tandem-network]
+    networks: [flint-network]
 
   redis:
     image: redis:7-alpine
-    container_name: tandem-redis
+    container_name: flint-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    networks: [tandem-network]
+    networks: [flint-network]
 
 
   jaeger:
     image: jaegertracing/all-in-one:1.50
-    container_name: tandem-jaeger
+    container_name: flint-jaeger
     ports:
       - "16686:16686"
       - "14268:14268"
     environment:
       COLLECTOR_OTLP_ENABLED: true
     networks:
-      - tandem-network
+      - flint-network
 
 volumes:
   postgres_data:
   redis_data:
 
 networks:
-  tandem-network:
+  flint-network:
     driver: bridge

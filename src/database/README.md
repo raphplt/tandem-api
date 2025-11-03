@@ -90,7 +90,7 @@ DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_USERNAME=postgres
 DATABASE_PASSWORD=postgres
-DATABASE_NAME=tandem_db
+DATABASE_NAME=flint_db
 ```
 
 Ou utilisez `DATABASE_URL` :

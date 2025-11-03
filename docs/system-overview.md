@@ -1,4 +1,4 @@
-# Architecture Tandem API
+# Architecture Flint API
 
 ## Schéma de base de données
 

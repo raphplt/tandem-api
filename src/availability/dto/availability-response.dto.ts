@@ -99,7 +99,7 @@ export class AvailabilityResponseDto {
       deviceInfo: {
         platform: 'iOS',
         version: '17.0',
-        userAgent: 'TandemApp/1.0.0',
+        userAgent: 'FlintApp/1.0.0',
       },
       location: {
         latitude: 48.8566,

@@ -73,8 +73,8 @@ async function bootstrap() {
 
   // Swagger documentation
   const config = new DocumentBuilder()
-    .setTitle('Tandem API')
-    .setDescription('API for Tandem social application')
+    .setTitle('Flint API')
+    .setDescription('API for Flint social application')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
@@ -109,10 +109,7 @@ async function bootstrap() {
         const [username, ...passwordParts] = decodedCredentials.split(':');
         const password = passwordParts.join(':');
 
-        if (
-          username !== swaggerUsername ||
-          password !== swaggerPassword
-        ) {
+        if (username !== swaggerUsername || password !== swaggerPassword) {
           res.setHeader('WWW-Authenticate', 'Basic realm="Swagger UI"');
           return res.status(401).send('Invalid credentials');
         }
@@ -142,7 +139,7 @@ async function bootstrap() {
   await app.listen(port, host);
 
   const displayedHost = host === '0.0.0.0' ? 'localhost' : host;
-  console.log(`🚀 Tandem API is running at http://${displayedHost}:${port}`);
+  console.log(`🚀 Flint API is running at http://${displayedHost}:${port}`);
   if (swaggerEnabled) {
     console.log(
       `📚 API Documentation available at http://${displayedHost}:${port}/api/docs`,

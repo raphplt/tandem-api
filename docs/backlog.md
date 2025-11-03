@@ -1,4 +1,4 @@
-# Backlog Tandem API (priorisé)
+# Backlog Flint API (priorisé)
 
 ## P0 — Bloquants immédiats
 

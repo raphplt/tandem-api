@@ -20,7 +20,7 @@ export class ObservabilityService implements OnModuleInit {
           },
         }),
       ],
-      serviceName: this.configService.get('OTEL_SERVICE_NAME', 'tandem-api'),
+      serviceName: this.configService.get('OTEL_SERVICE_NAME', 'flint-api'),
     });
 
     sdk.start();
