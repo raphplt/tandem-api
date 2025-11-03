@@ -13,6 +13,8 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { UserRole } from 'src/common/enums/user.enums';
+import { OnboardingMergeService } from '../onboarding/onboarding-merge.service';
+import { AuthMethodType } from '../users/entities/user-auth-method.entity';
 
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7;
 
@@ -22,6 +24,7 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly betterAuthService: BetterAuthService,
+    private readonly onboardingMergeService: OnboardingMergeService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
@@ -40,10 +43,15 @@ export class AuthService {
         throw new BadRequestException('Registration failed - user not created');
       }
 
-      const user = await this.ensureLocalUser(result.user, {
+      let user = await this.ensureLocalUser(result.user, {
         firstName: registerDto.firstName,
         lastName: registerDto.lastName,
       });
+
+      const mergedUser = await this.mergeDraftIfNeeded(registerDto, user);
+      if (mergedUser) {
+        user = mergedUser;
+      }
 
       return this.buildAuthResponse(user, result.token ?? '');
     } catch (error) {
@@ -225,6 +233,34 @@ export class AuthService {
     return shouldPersist
       ? this.userRepository.save(existingUser)
       : existingUser;
+  }
+
+  private async mergeDraftIfNeeded(
+    registerDto: RegisterDto,
+    user: User,
+  ): Promise<User | null> {
+    if (!registerDto.draftId || !registerDto.draftToken) {
+      return null;
+    }
+
+    try {
+      const merged = await this.onboardingMergeService.mergeDraft({
+        draftId: registerDto.draftId,
+        draftToken: registerDto.draftToken,
+        authMethod: AuthMethodType.EMAIL,
+        identifier: registerDto.email.toLowerCase(),
+        email: registerDto.email,
+        existingUserId: user.id,
+      });
+
+      return merged;
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error
+          ? error.message
+          : 'Impossible de fusionner le draft onboarding',
+      );
+    }
   }
 
   private buildAuthResponse(user: User, token: string): AuthResponseDto {

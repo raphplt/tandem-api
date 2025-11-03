@@ -54,4 +54,18 @@ export class RegisterDto {
   @IsOptional()
   @IsDateString({}, { message: 'Please provide a valid date of birth' })
   dateOfBirth?: string;
+
+  @ApiPropertyOptional({
+    description: 'Onboarding draft identifier to merge after registration',
+  })
+  @IsOptional()
+  @IsString()
+  draftId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Draft token proving ownership of the onboarding draft',
+  })
+  @IsOptional()
+  @IsString()
+  draftToken?: string;
 }

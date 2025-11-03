@@ -18,6 +18,7 @@ import { AuthGuard } from './auth.guard';
 import { RolesGuard } from './roles.guard';
 import { OwnershipGuard } from './ownership.guard';
 import { WsAuthGuard } from './ws-auth.guard';
+import { OnboardingModule } from '../onboarding/onboarding.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { WsAuthGuard } from './ws-auth.guard';
       Message,
     ]),
     ConfigModule,
+    OnboardingModule,
   ],
   controllers: [AuthController],
   providers: [

@@ -4,7 +4,10 @@ import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { OnboardingService } from './onboarding.service';
 import { OnboardingDraft } from './entities/onboarding-draft.entity';
 import { User } from '../users/entities/user.entity';
-import { UserAuthMethod, AuthMethodType } from '../users/entities/user-auth-method.entity';
+import {
+  UserAuthMethod,
+  AuthMethodType,
+} from '../users/entities/user-auth-method.entity';
 import { Profile, Gender } from '../profiles/entities/profile.entity';
 import { ProfilePreference } from '../profiles/entities/profile-preference.entity';
 import { Photo } from '../users/entities/photo.entity';
@@ -76,7 +79,9 @@ export class OnboardingMergeService {
 
     const payload = (draft.payloadJson ?? {}) as DraftPayload;
     if (!payload.profile) {
-      throw new BadRequestException('Le draft ne contient pas de profil valide');
+      throw new BadRequestException(
+        'Le draft ne contient pas de profil valide',
+      );
     }
 
     const birthdate = new Date(payload.profile.birthdate);
@@ -181,20 +186,60 @@ export class OnboardingMergeService {
         await profileRepo.save(profile);
       }
 
+      //TODO : corriger ce bidouillage
       if (payload.interests && payload.interests.length) {
-        const interests = await interestRepo.find({
-          where: { name: In(payload.interests) },
-        });
+        try {
+          const uniqueInterestKeys = [...new Set(payload.interests)];
+          const uuidRegex =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-        if (interests.length !== payload.interests.length) {
-          throw new BadRequestException('Intérêt inconnu dans le draft');
+          const idKeys = uniqueInterestKeys.filter((key) =>
+            uuidRegex.test(key),
+          );
+          const nameKeys = uniqueInterestKeys.filter(
+            (key) => !uuidRegex.test(key),
+          );
+
+          const interestsById = idKeys.length
+            ? await interestRepo.find({ where: { id: In(idKeys) } })
+            : [];
+          const remainingIds = new Set(idKeys);
+          interestsById.forEach((interest) => remainingIds.delete(interest.id));
+
+          const interestsByName = nameKeys.length
+            ? await interestRepo.find({ where: { name: In(nameKeys) } })
+            : [];
+          const remainingNames = new Set(nameKeys);
+          interestsByName.forEach((interest) =>
+            remainingNames.delete(interest.name),
+          );
+
+          if (remainingIds.size > 0 || remainingNames.size > 0) {
+            const missing = [
+              ...Array.from(remainingIds.values()),
+              ...Array.from(remainingNames.values()),
+            ];
+            console.warn(
+              '[OnboardingMerge] Intérêts inconnus ignorés:',
+              missing.join(', '),
+            );
+          }
+
+          const interests = [...interestsById, ...interestsByName];
+
+          if (interests.length > 0) {
+            await manager
+              .createQueryBuilder()
+              .relation(Profile, 'interests')
+              .of(profile.id)
+              .set(interests);
+          }
+        } catch (error) {
+          console.error(
+            '[OnboardingMerge] Impossible de lier les intérêts, draft ignoré',
+            error,
+          );
         }
-
-        await manager
-          .createQueryBuilder()
-          .relation(Profile, 'interests')
-          .of(profile.id)
-          .set(interests);
       }
 
       if (payload.photos?.length) {
@@ -249,14 +294,18 @@ export class OnboardingMergeService {
     }
 
     if (params.appleSub) {
-      const byApple = await repo.findOne({ where: { appleSub: params.appleSub } });
+      const byApple = await repo.findOne({
+        where: { appleSub: params.appleSub },
+      });
       if (byApple) {
         return byApple;
       }
     }
 
     if (params.googleSub) {
-      const byGoogle = await repo.findOne({ where: { googleSub: params.googleSub } });
+      const byGoogle = await repo.findOne({
+        where: { googleSub: params.googleSub },
+      });
       if (byGoogle) {
         return byGoogle;
       }
@@ -307,13 +356,10 @@ export class OnboardingMergeService {
   private isAdult(birthdate: Date): boolean {
     const now = new Date();
     const age =
-      now.getFullYear() - birthdate.getFullYear() -
+      now.getFullYear() -
+      birthdate.getFullYear() -
       (now <
-        new Date(
-          now.getFullYear(),
-          birthdate.getMonth(),
-          birthdate.getDate(),
-        )
+      new Date(now.getFullYear(), birthdate.getMonth(), birthdate.getDate())
         ? 1
         : 0);
     return age >= 18;
