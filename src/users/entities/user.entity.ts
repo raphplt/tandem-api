@@ -78,6 +78,9 @@ export class User {
   @JoinColumn()
   profile: Profile;
 
+  @Column({ nullable: true })
+  profileId?: string;
+
   @OneToOne(() => ProfilePreference, (preference) => preference.user, {
     cascade: true,
   })

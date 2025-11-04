@@ -352,8 +352,17 @@ export class ProfilesService {
     }
 
     if (!user.profile) {
-      if (options?.ensureProfile) {
-        const profileRepo = (manager?.getRepository(Profile) ?? this.profileRepository);
+      const profileRepo =
+        manager?.getRepository(Profile) ?? this.profileRepository;
+
+      const existingProfile = await profileRepo.findOne({
+        where: { userId },
+        relations: ['interests', 'values'],
+      });
+
+      if (existingProfile) {
+        user.profile = existingProfile;
+      } else if (options?.ensureProfile) {
         const profile = profileRepo.create({
           userId,
           firstName: user.firstName ?? '',
@@ -385,8 +394,13 @@ export class ProfilesService {
     const distanceKm =
       preference?.distanceKm ?? jsonPreferences?.maxDistance ?? 50;
 
+    const birthdateValue = profile.birthdate
+      ? new Date(profile.birthdate)
+      : undefined;
     const birthdate =
-      profile.birthdate?.toISOString().split('T')[0];
+      birthdateValue && !Number.isNaN(birthdateValue.getTime())
+        ? birthdateValue.toISOString().split('T')[0]
+        : undefined;
 
     return {
       userId: user.id,

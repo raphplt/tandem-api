@@ -161,6 +161,13 @@ export class OnboardingMergeService {
 
       profile = await profileRepo.save(profile);
 
+      // Rattache explicitement le profil à l'utilisateur afin d'alimenter users.profileId
+      if (!user.profile || user.profile.id !== profile.id) {
+        user.profile = profile;
+        user.profileId = profile.id;
+        await userRepo.save(user);
+      }
+
       if (payload.preferences) {
         let preference = await preferenceRepo.findOne({
           where: { userId: user.id },
@@ -228,11 +235,36 @@ export class OnboardingMergeService {
           const interests = [...interestsById, ...interestsByName];
 
           if (interests.length > 0) {
-            await manager
+            const profileWithInterests = await profileRepo.findOne({
+              where: { id: profile.id },
+              relations: ['interests'],
+            });
+
+            const existingInterestIds =
+              profileWithInterests?.interests?.map(
+                (interest) => interest.id,
+              ) ?? [];
+            const desiredInterestIds = interests.map((interest) => interest.id);
+
+            const relationBuilder = manager
               .createQueryBuilder()
               .relation(Profile, 'interests')
-              .of(profile.id)
-              .set(interests);
+              .of(profile.id);
+
+            const idsToRemove = existingInterestIds.filter(
+              (id) => !desiredInterestIds.includes(id),
+            );
+            const idsToAdd = desiredInterestIds.filter(
+              (id) => !existingInterestIds.includes(id),
+            );
+
+            if (idsToRemove.length > 0) {
+              await relationBuilder.remove(idsToRemove);
+            }
+
+            if (idsToAdd.length > 0) {
+              await relationBuilder.add(idsToAdd);
+            }
           }
         } catch (error) {
           console.error(
