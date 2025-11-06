@@ -19,6 +19,7 @@ import { OnboardingService } from '../onboarding/onboarding.service';
 import { SaveProfileDraftDto } from './dto/save-profile-draft.dto';
 import { SavePreferencesDraftDto } from './dto/save-preferences-draft.dto';
 import { SaveInterestsDraftDto } from './dto/save-interests-draft.dto';
+import { SavePhotosDraftDto } from './dto/save-photos-draft.dto';
 import { UpsertOnboardingDraftResponseDto } from '../onboarding/dto/upsert-onboarding-draft-response.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
@@ -29,8 +30,7 @@ const MIN_ADULT_AGE = 18;
 
 @Injectable()
 export class ProfilesService {
-  constructor
-  (
+  constructor(
     @InjectRepository(Profile)
     private readonly profileRepository: Repository<Profile>,
     @InjectRepository(ProfilePreference)
@@ -152,6 +152,31 @@ export class ProfilesService {
     );
   }
 
+  async savePhotosDraft(
+    dto: SavePhotosDraftDto,
+  ): Promise<UpsertOnboardingDraftResponseDto> {
+    const draft = await this.onboardingService.assertDraftById(
+      dto.draftId,
+      dto.draftToken,
+    );
+
+    const payloadPatch = {
+      photos: dto.photos,
+    };
+
+    const { draft: updatedDraft, draftToken } =
+      await this.onboardingService.upsertDraft({
+        deviceId: draft.deviceId,
+        draftToken: dto.draftToken,
+        payload: payloadPatch,
+      });
+
+    return UpsertOnboardingDraftResponseDto.fromEntity(
+      updatedDraft,
+      draftToken,
+    );
+  }
+
   async getCurrentUserProfile(userId: string): Promise<ProfileResponseDto> {
     const aggregate = await this.loadAggregate(userId);
     return this.mapToResponseDto(aggregate.user);
@@ -178,7 +203,9 @@ export class ProfilesService {
       if (dto.birthdate !== undefined) {
         const birthdate = new Date(dto.birthdate);
         if (!this.isAdult(birthdate)) {
-          throw new BadRequestException('L’utilisateur doit avoir au moins 18 ans');
+          throw new BadRequestException(
+            'L’utilisateur doit avoir au moins 18 ans',
+          );
         }
         profile.birthdate = birthdate;
       }
@@ -189,7 +216,9 @@ export class ProfilesService {
 
       if (dto.seeking !== undefined) {
         if (!dto.seeking.length) {
-          throw new BadRequestException('La liste seeking ne peut pas être vide');
+          throw new BadRequestException(
+            'La liste seeking ne peut pas être vide',
+          );
         }
         profile.interestedIn = dto.seeking;
       }
@@ -318,13 +347,14 @@ export class ProfilesService {
   private isAdult(birthdate: Date): boolean {
     const now = new Date();
     const age =
-      now.getFullYear() - birthdate.getFullYear() -
+      now.getFullYear() -
+      birthdate.getFullYear() -
       (now <
-        new Date(
-          birthdate.getFullYear() + now.getFullYear() - birthdate.getFullYear(),
-          birthdate.getMonth(),
-          birthdate.getDate(),
-        )
+      new Date(
+        birthdate.getFullYear() + now.getFullYear() - birthdate.getFullYear(),
+        birthdate.getMonth(),
+        birthdate.getDate(),
+      )
         ? 1
         : 0);
     return age >= MIN_ADULT_AGE;
@@ -387,10 +417,8 @@ export class ProfilesService {
     const profileInterests = profile.interests ?? [];
     const jsonPreferences = profile.preferences;
 
-    const ageMin =
-      preference?.ageMin ?? jsonPreferences?.ageRange?.min ?? 25;
-    const ageMax =
-      preference?.ageMax ?? jsonPreferences?.ageRange?.max ?? 35;
+    const ageMin = preference?.ageMin ?? jsonPreferences?.ageRange?.min ?? 25;
+    const ageMax = preference?.ageMax ?? jsonPreferences?.ageRange?.max ?? 35;
     const distanceKm =
       preference?.distanceKm ?? jsonPreferences?.maxDistance ?? 50;
 

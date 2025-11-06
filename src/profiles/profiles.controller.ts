@@ -15,6 +15,7 @@ import { ProfilesService } from './profiles.service';
 import { SaveProfileDraftDto } from './dto/save-profile-draft.dto';
 import { SavePreferencesDraftDto } from './dto/save-preferences-draft.dto';
 import { SaveInterestsDraftDto } from './dto/save-interests-draft.dto';
+import { SavePhotosDraftDto } from './dto/save-photos-draft.dto';
 import { UpsertOnboardingDraftResponseDto } from '../onboarding/dto/upsert-onboarding-draft-response.dto';
 import { ProfileResponseDto, ProfilePhotoResponseDto } from './dto/profile-response.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -31,7 +32,9 @@ export class ProfilesController {
 
   @Post('profiles/draft')
   @Public()
-  @ApiOperation({ summary: 'Enregistrer les informations principales du profil dans le draft' })
+  @ApiOperation({
+    summary: 'Enregistrer les informations principales du profil dans le draft',
+  })
   @ApiResponse({
     status: 200,
     description: 'Draft mis à jour',
@@ -45,7 +48,9 @@ export class ProfilesController {
 
   @Post('profiles/draft/preferences')
   @Public()
-  @ApiOperation({ summary: 'Enregistrer les préférences (âge/distance) dans le draft' })
+  @ApiOperation({
+    summary: 'Enregistrer les préférences (âge/distance) dans le draft',
+  })
   @ApiResponse({
     status: 200,
     description: 'Draft mis à jour',
@@ -71,9 +76,25 @@ export class ProfilesController {
     return this.profilesService.saveInterestsDraft(dto);
   }
 
+  @Post('profiles/draft/photos')
+  @Public()
+  @ApiOperation({ summary: 'Enregistrer les photos dans le draft' })
+  @ApiResponse({
+    status: 200,
+    description: 'Draft mis à jour',
+    type: UpsertOnboardingDraftResponseDto,
+  })
+  savePhotosDraft(
+    @Body() dto: SavePhotosDraftDto,
+  ): Promise<UpsertOnboardingDraftResponseDto> {
+    return this.profilesService.savePhotosDraft(dto);
+  }
+
   @Get('users/me/profile')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Récupérer le profil complet de l’utilisateur connecté' })
+  @ApiOperation({
+    summary: 'Récupérer le profil complet de l’utilisateur connecté',
+  })
   @ApiResponse({ status: 200, type: ProfileResponseDto })
   getMyProfile(@CurrentUser() user: User): Promise<ProfileResponseDto> {
     return this.profilesService.getCurrentUserProfile(user.id);
@@ -81,7 +102,9 @@ export class ProfilesController {
 
   @Put('users/me/profile')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Mettre à jour les informations principales du profil (post-auth)' })
+  @ApiOperation({
+    summary: 'Mettre à jour les informations principales du profil (post-auth)',
+  })
   @ApiResponse({ status: 200, type: ProfileResponseDto })
   updateMyProfile(
     @CurrentUser() user: User,
@@ -92,7 +115,9 @@ export class ProfilesController {
 
   @Put('users/me/preferences')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Mettre à jour les préférences de recherche (post-auth)' })
+  @ApiOperation({
+    summary: 'Mettre à jour les préférences de recherche (post-auth)',
+  })
   @ApiResponse({ status: 200, type: ProfileResponseDto })
   updateMyPreferences(
     @CurrentUser() user: User,
