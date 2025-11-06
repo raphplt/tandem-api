@@ -157,7 +157,6 @@ async function dropDatabase(dataSource: DataSource): Promise<void> {
 }
 
 async function main() {
-  // Parse command line arguments
   const args = process.argv.slice(2);
   const shouldDrop = args.includes('--drop') || args.includes('-d');
 

@@ -20,7 +20,6 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const bootstrapLogger = new Logger('Bootstrap');
 
-  // Initialize Sentry
   const sentryDsn = configService.get('SENTRY_DSN');
   if (sentryDsn) {
     Sentry.init({
@@ -29,17 +28,20 @@ async function bootstrap() {
     });
   }
 
-  // Security middleware
   app.use(helmet());
   app.use(compression());
 
-  // CORS
+  const corsOrigin =
+    (configService.get<string | string[]>('app.corsOrigin') as
+      | string
+      | string[]
+      | undefined) || 'http://localhost:3000';
+
   app.enableCors({
-    origin: configService.get('app.corsOrigin') || 'http://localhost:3000',
+    origin: corsOrigin,
     credentials: true,
   });
 
-  // Global pipes
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -47,16 +49,12 @@ async function bootstrap() {
     }),
   );
 
-  // Global filters
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  // Global interceptors
   app.useGlobalInterceptors(new LoggingInterceptor());
 
-  // Middleware
   app.use(new TracingMiddleware().use);
 
-  // WebSocket adapter
   const redisAdapter = new RedisIoAdapter(app);
   try {
     await redisAdapter.connectToRedis();
@@ -68,10 +66,8 @@ async function bootstrap() {
   }
   app.useWebSocketAdapter(redisAdapter);
 
-  // API prefix
   app.setGlobalPrefix(configService.get('app.apiPrefix') || 'api/v1');
 
-  // Swagger documentation
   const config = new DocumentBuilder()
     .setTitle('Flint API')
     .setDescription('API for Flint social application')
