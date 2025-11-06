@@ -3,6 +3,7 @@ import { INTERESTS_SEED_DATA } from './seeders/interests.seeder';
 import { Interest } from '../interests/entities/interest.entity';
 import { User } from '../users/entities/user.entity';
 import { Profile } from '../profiles/entities/profile.entity';
+import { ProfilePreference } from '../profiles/entities/profile-preference.entity';
 import { Availability } from '../availability/entities/availability.entity';
 import { Match } from '../matches/entities/match.entity';
 import { Conversation } from '../conversations/entities/conversation.entity';
@@ -17,6 +18,12 @@ import { Analytics } from '../analytics/entities/analytics.entity';
 import { BetterAuthUser } from '../auth/entities/better-auth-user.entity';
 import { BetterAuthSession } from '../auth/entities/better-auth-session.entity';
 import { BetterAuthAccount } from '../auth/entities/better-auth-account.entity';
+import { OnboardingDraft } from '../onboarding/entities/onboarding-draft.entity';
+import { UserAuthMethod } from '../users/entities/user-auth-method.entity';
+import { Session } from '../users/entities/session.entity';
+import { Photo } from '../users/entities/photo.entity';
+import { Verification } from '../users/entities/verification.entity';
+import { AuditLog } from '../users/entities/audit-log.entity';
 
 try {
   const dotenv = require('dotenv');
@@ -24,6 +31,33 @@ try {
 } catch {
   console.log('No .env file found');
 }
+
+const ENTITY_LIST = [
+  User,
+  Profile,
+  ProfilePreference,
+  Availability,
+  Match,
+  Conversation,
+  Message,
+  Reward,
+  Report,
+  PushToken,
+  Interest,
+  Value,
+  Notification,
+  Admin,
+  Analytics,
+  OnboardingDraft,
+  UserAuthMethod,
+  Session,
+  Photo,
+  Verification,
+  AuditLog,
+  BetterAuthUser,
+  BetterAuthSession,
+  BetterAuthAccount,
+];
 
 async function createDataSource(synchronize = false): Promise<DataSource> {
   return new DataSource({
@@ -33,25 +67,7 @@ async function createDataSource(synchronize = false): Promise<DataSource> {
     username: process.env.DATABASE_USERNAME || 'postgres',
     password: process.env.DATABASE_PASSWORD || 'postgres',
     database: process.env.DATABASE_NAME || 'tandem_db',
-    entities: [
-      User,
-      Profile,
-      Availability,
-      Match,
-      Conversation,
-      Message,
-      Reward,
-      Report,
-      PushToken,
-      Interest,
-      Value,
-      Notification,
-      Admin,
-      Analytics,
-      BetterAuthUser,
-      BetterAuthSession,
-      BetterAuthAccount,
-    ],
+    entities: ENTITY_LIST,
     synchronize,
     logging: false,
   });
@@ -120,27 +136,7 @@ async function dropDatabase(dataSource: DataSource): Promise<void> {
     }
 
     // Drop entity tables
-    const entities = [
-      BetterAuthAccount,
-      BetterAuthSession,
-      BetterAuthUser,
-      Message,
-      Conversation,
-      Match,
-      Availability,
-      Profile,
-      Reward,
-      Report,
-      PushToken,
-      Interest,
-      Value,
-      Notification,
-      Admin,
-      Analytics,
-      User,
-    ];
-
-    for (const entity of entities) {
+    for (const entity of ENTITY_LIST) {
       try {
         const metadata = dataSource.getMetadata(entity);
         await queryRunner.query(
