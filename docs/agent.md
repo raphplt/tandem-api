@@ -1,10 +1,10 @@
-### **Backend Flint — Architecture détaillée et guide de développement**
+### **Backend Solow — Architecture détaillée et guide de développement**
 
-Flint est une application sociale conçue pour recréer la profondeur des échanges humains.
+Solow est une application sociale conçue pour recréer la profondeur des échanges humains.
 Chaque jour, un utilisateur ne peut parler qu’à une seule personne, choisie selon ses affinités et son humeur.
 La discussion dure 24 heures, puis disparaît sauf si les deux souhaitent la poursuivre.
 Aucune file infinie, aucun swipe, aucune illusion de choix — seulement un échange réel, dans un cadre apaisé.
-Flint est le premier réseau social basé sur la rareté, la sincérité et la présence.
+Solow est le premier réseau social basé sur la rareté, la sincérité et la présence.
 
 
 ---

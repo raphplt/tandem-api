@@ -69,8 +69,8 @@ async function bootstrap() {
   app.setGlobalPrefix(configService.get('app.apiPrefix') || 'api/v1');
 
   const config = new DocumentBuilder()
-    .setTitle('Flint API')
-    .setDescription('API for Flint social application')
+    .setTitle('Solow API')
+    .setDescription('API for Solow social application')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
@@ -135,7 +135,7 @@ async function bootstrap() {
   await app.listen(port, host);
 
   const displayedHost = host === '0.0.0.0' ? 'localhost' : host;
-  console.log(`🚀 Flint API is running at http://${displayedHost}:${port}`);
+  console.log(`🚀 Solow API is running at http://${displayedHost}:${port}`);
   if (swaggerEnabled) {
     console.log(
       `📚 API Documentation available at http://${displayedHost}:${port}/api/docs`,

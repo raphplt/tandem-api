@@ -1,4 +1,4 @@
-# Architecture Flint API
+# Architecture Solow API
 
 ## Schéma de base de données
 

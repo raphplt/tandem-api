@@ -1,4 +1,4 @@
-# Revue API Flint (2025-11-02)
+# Revue API Solow (2025-11-02)
 
 ## 1. Synthèse rapide
 
