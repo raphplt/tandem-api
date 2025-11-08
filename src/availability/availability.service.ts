@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import {
@@ -27,6 +28,7 @@ export class AvailabilityService {
     private availabilityRepository: Repository<Availability>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(
@@ -69,7 +71,9 @@ export class AvailabilityService {
 
     const savedAvailability =
       await this.availabilityRepository.save(availability);
-    return this.mapToResponseDto(savedAvailability);
+    const response = this.mapToResponseDto(savedAvailability);
+    this.emitAvailabilityEvent(response);
+    return response;
   }
 
   async findAll(): Promise<AvailabilityResponseDto[]> {
@@ -227,7 +231,9 @@ export class AvailabilityService {
 
     const savedAvailability =
       await this.availabilityRepository.save(availability);
-    return this.mapToResponseDto(savedAvailability);
+    const response = this.mapToResponseDto(savedAvailability);
+    this.emitAvailabilityEvent(response);
+    return response;
   }
 
   async sendHeartbeat(
@@ -267,7 +273,9 @@ export class AvailabilityService {
 
     const savedAvailability =
       await this.availabilityRepository.save(availability);
-    return this.mapToResponseDto(savedAvailability);
+    const response = this.mapToResponseDto(savedAvailability);
+    this.emitAvailabilityEvent(response);
+    return response;
   }
 
   async joinQueue(
@@ -459,5 +467,18 @@ export class AvailabilityService {
       isExpired: availability.isExpired,
       sessionDuration: availability.sessionDuration,
     };
+  }
+
+  private emitAvailabilityEvent(
+    availability: AvailabilityResponseDto,
+  ): void {
+    if (!availability?.userId) {
+      return;
+    }
+
+    this.eventEmitter.emit(
+      `availability.status.${availability.userId}`,
+      availability,
+    );
   }
 }

@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In } from 'typeorm';
 import { Match, MatchStatus, MatchType } from './entities/match.entity';
@@ -37,6 +38,7 @@ export class MatchesService {
     private profileRepository: Repository<Profile>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(createMatchDto: CreateMatchDto): Promise<MatchResponseDto> {
@@ -86,7 +88,9 @@ export class MatchesService {
     });
 
     const savedMatch = await this.matchRepository.save(match);
-    return this.mapToResponseDto(savedMatch);
+    const response = this.mapToResponseDto(savedMatch);
+    this.emitMatchFound(response);
+    return response;
   }
 
   async findAll(): Promise<MatchResponseDto[]> {
@@ -436,6 +440,7 @@ export class MatchesService {
 
           const savedMatch = await this.matchRepository.save(match);
           matches.push(savedMatch);
+          this.emitMatchFound(this.mapToResponseDto(savedMatch));
           usedProfiles.add(profiles[i].id);
           usedProfiles.add(profiles[j].id);
           break;
@@ -732,5 +737,19 @@ export class MatchesService {
       daysSinceMatch: match.daysSinceMatch,
       timeUntilExpiry: match.timeUntilExpiry || undefined,
     };
+  }
+
+  private emitMatchFound(match: MatchResponseDto): void {
+    if (!match || match.type !== MatchType.DAILY) {
+      return;
+    }
+
+    if (match.user1Id) {
+      this.eventEmitter.emit(`matches.found.${match.user1Id}`, match);
+    }
+
+    if (match.user2Id) {
+      this.eventEmitter.emit(`matches.found.${match.user2Id}`, match);
+    }
   }
 }

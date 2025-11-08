@@ -115,6 +115,29 @@ export interface MatchResponse {
 
 > ⚠️ `MatchResponse` inclut désormais les champs `user1AcceptedAt`, `user2AcceptedAt`, `user1RejectedAt`, `user2RejectedAt` pour aider le front à afficher “en attente de l'autre”.
 
+### Flux SSE « Recherche quotidienne »
+
+Pour éviter le polling lors du lancement d'un match quotidien, un flux SSE (`EventSource`) informe le front des changements d'état de disponibilité et de l'arrivée d'un match.
+
+| Méthode | Route | Auth | Retour | Notes |
+| --- | --- | --- | --- | --- |
+| GET | `/matches/search/stream` | Session BetterAuth | Flux SSE (`text/event-stream`) | Reste ouvert tant que l'utilisateur garde l'écran de recherche actif. |
+
+**Événements émis**
+
+- `search_state` : payload `{ status: AvailabilityStatus, queuedAt, timeInQueue, isOnline }`. Déclenché lors de l'entrée/sortie de file (JOIN/LEAVE), après heartbeat et à l'ouverture initiale.
+- `match_found` : `{ match: MatchResponse }` envoyé dès qu'un match `daily` est créé pour l'utilisateur (génération auto ou création admin) + rejoué à la connexion si un match existe déjà.
+- `heartbeat` : keep-alive toutes les 15 s `{ timestamp }` pour simplifier la gestion réseau côté client.
+
+**Séquence front recommandée**
+
+1. À l'appui sur “Lancer ma rencontre”, appeler `POST /availability/queue/join` (peut inclure des préférences temporaires).
+2. Ouvrir un `EventSource` sur `/matches/search/stream` et afficher l'état `search_state.status` (`queued`, `idle`, `matched`, etc.).
+3. Fermer l'EventSource lors de la sortie d'écran ou après réception de `match_found`. Optionnel : appeler `POST /availability/queue/leave` si l'utilisateur annule.
+4. Sur `match_found`, naviguer vers l'écran de match (le payload contient tout le `MatchResponse`).
+
+> ℹ️ Le flux SSE repose sur la table `availability` : tant que l'utilisateur est `queued` ✅ et « online », le backend peut l'apparier. Le front doit continuer à envoyer des heartbeats (`POST /availability/heartbeat`) toutes les ~2 minutes pour conserver `isOnline=true`.
+
 ## Système de conversations & messages
 
 ### Enums & entités clés

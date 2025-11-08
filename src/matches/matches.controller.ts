@@ -8,6 +8,8 @@ import {
   Delete,
   UseGuards,
   Query,
+  Sse,
+  MessageEvent,
 } from '@nestjs/common';
 import { MatchesService } from './matches.service';
 import { CreateMatchDto } from './dto/create-match.dto';
@@ -15,11 +17,16 @@ import { UpdateMatchDto } from './dto/update-match.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser, Roles } from '../auth/decorators';
+import { Observable } from 'rxjs';
+import { MatchSearchStreamService } from './match-search-stream.service';
 
 @Controller('matches')
 @UseGuards(AuthGuard, RolesGuard)
 export class MatchesController {
-  constructor(private readonly matchesService: MatchesService) {}
+  constructor(
+    private readonly matchesService: MatchesService,
+    private readonly matchSearchStreamService: MatchSearchStreamService,
+  ) {}
 
   @Post()
   @Roles('admin')
@@ -45,6 +52,11 @@ export class MatchesController {
   ) {
     const targetDate = date ?? new Date().toISOString();
     return this.matchesService.findDailyMatch(user.id, targetDate);
+  }
+
+  @Sse('search/stream')
+  searchStream(@CurrentUser() user: any): Observable<MessageEvent> {
+    return this.matchSearchStreamService.getStreamForUser(user.id);
   }
 
   @Get(':id')
