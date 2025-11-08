@@ -54,6 +54,9 @@ export class ProfileResponseDto {
   @ApiPropertyOptional()
   bio?: string;
 
+  @ApiPropertyOptional()
+  photoUrl?: string;
+
   @ApiPropertyOptional({ type: String, format: 'date-time' })
   publishedAt?: Date;
 

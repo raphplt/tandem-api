@@ -443,6 +443,7 @@ export class ProfilesService {
       lng: profile.lng ?? undefined,
       bio: profile.bio ?? undefined,
       publishedAt: profile.publishedAt ?? undefined,
+      photoUrl: profile.photoUrl ?? undefined,
       preferences: {
         ageMin,
         ageMax,
