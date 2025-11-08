@@ -7,6 +7,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In, Not } from 'typeorm';
+import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { Message, MessageType, MessageStatus } from './entities/message.entity';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
@@ -51,7 +52,7 @@ export class MessagesService {
     );
 
     // Check if conversation is still active
-    if (!conversation.isActiveConversation) {
+    if (!conversation.isActive || !conversation.isActiveConversation) {
       throw new BadRequestException(
         'Cannot send messages to inactive or expired conversation',
       );
@@ -141,7 +142,7 @@ export class MessagesService {
     await this.validateConversationAccess(conversationId, userId);
 
     const messages = await this.messageRepository.find({
-      where: { conversationId, isDeleted: false },
+      where: { conversationId },
       order: { createdAt: 'DESC' },
       take: limit,
       skip: offset,
@@ -278,7 +279,10 @@ export class MessagesService {
     userId: string,
   ): Promise<void> {
     // Validate conversation access
-    await this.validateConversationAccess(conversationId, userId);
+    const conversation = await this.validateConversationAccess(
+      conversationId,
+      userId,
+    );
 
     // Mark all messages in conversation as read
     await this.messageRepository.update(
@@ -291,6 +295,25 @@ export class MessagesService {
         status: MessageStatus.READ,
       },
     );
+
+    const metadata = {
+      ...(conversation.metadata ?? {}),
+      lastActivity: new Date(),
+    };
+
+    const updateConversation: QueryDeepPartialEntity<Conversation> = {
+      metadata,
+    };
+
+    if (conversation.user1Id === userId) {
+      updateConversation.isReadByUser1 = true;
+      metadata.user1LastSeen = new Date();
+    } else {
+      updateConversation.isReadByUser2 = true;
+      metadata.user2LastSeen = new Date();
+    }
+
+    await this.conversationRepository.update(conversationId, updateConversation);
 
     const eventPayload: MessageReadEvent = {
       conversationId,

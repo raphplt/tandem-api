@@ -411,13 +411,20 @@ export class ConversationsService {
     await this.conversationRepository.remove(conversation);
   }
 
-  async createFromMatch(matchId: string): Promise<ConversationResponseDto> {
+  async createFromMatch(
+    matchId: string,
+    currentUserId: string,
+  ): Promise<ConversationResponseDto> {
     const match = await this.matchRepository.findOne({
       where: { id: matchId, isActive: true },
     });
 
     if (!match) {
       throw new NotFoundException('Match not found or inactive');
+    }
+
+    if (match.user1Id !== currentUserId && match.user2Id !== currentUserId) {
+      throw new ForbiddenException('You can only create conversations for your matches');
     }
 
     if (match.status !== 'accepted') {

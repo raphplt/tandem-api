@@ -98,7 +98,19 @@ export class Match {
   acceptedAt?: Date;
 
   @Column({ nullable: true })
+  user1AcceptedAt?: Date;
+
+  @Column({ nullable: true })
+  user2AcceptedAt?: Date;
+
+  @Column({ nullable: true })
   rejectedAt?: Date;
+
+  @Column({ nullable: true })
+  user1RejectedAt?: Date;
+
+  @Column({ nullable: true })
+  user2RejectedAt?: Date;
 
   @Column({ nullable: true })
   cancelledAt?: Date;

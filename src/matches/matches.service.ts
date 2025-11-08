@@ -13,6 +13,7 @@ import { UpdateMatchDto } from './dto/update-match.dto';
 import { MatchResponseDto } from './dto/match-response.dto';
 import { Profile } from '../profiles/entities/profile.entity';
 import { User } from '../users/entities/user.entity';
+import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 
 @Injectable()
 export class MatchesService {
@@ -41,13 +42,18 @@ export class MatchesService {
   async create(createMatchDto: CreateMatchDto): Promise<MatchResponseDto> {
     const { user1Id, user2Id, profile1Id, profile2Id, matchDate } =
       createMatchDto;
+    const normalizedMatchDate = new Date(matchDate);
 
     await this.validateUsersExist([user1Id, user2Id]);
 
     await this.validateProfilesExist([profile1Id, profile2Id]);
 
     // Vérifier si un match existe déjà entre ces utilisateurs
-    const existingMatch = await this.findExistingMatch(user1Id, user2Id);
+    const existingMatch = await this.findExistingMatch(
+      user1Id,
+      user2Id,
+      normalizedMatchDate,
+    );
     if (existingMatch) {
       throw new ConflictException('Match already exists between these users');
     }
@@ -71,7 +77,7 @@ export class MatchesService {
     const match = this.matchRepository.create({
       ...createMatchDto,
       compatibilityScore,
-      matchDate: new Date(matchDate),
+      matchDate: normalizedMatchDate,
       expiresAt: createMatchDto.expiresAt
         ? new Date(createMatchDto.expiresAt)
         : this.calculateExpiryTime(),
@@ -189,27 +195,47 @@ export class MatchesService {
       throw new NotFoundException(`Match with ID ${id} not found`);
     }
 
-    // Vérifier si l'utilisateur fait partie de ce match
     if (match.user1Id !== userId && match.user2Id !== userId) {
       throw new ForbiddenException('You can only accept your own matches');
     }
 
-    // Vérifier si le match est toujours en attente
-    if (match.status !== MatchStatus.PENDING) {
-      throw new BadRequestException('Match is not pending');
+    if (
+      match.status === MatchStatus.REJECTED ||
+      match.status === MatchStatus.CANCELLED ||
+      match.status === MatchStatus.EXPIRED
+    ) {
+      throw new BadRequestException('Match can no longer be accepted');
     }
 
-    // Vérifier si le match a expiré
     if (match.isExpired) {
       throw new BadRequestException('Match has expired');
     }
 
-    // Mettre à jour le statut du match
-    await this.matchRepository.update(id, {
-      status: MatchStatus.ACCEPTED,
-      acceptedAt: new Date(),
-      isMutual: true,
-    });
+    const isUser1 = match.user1Id === userId;
+    const alreadyAccepted = isUser1
+      ? match.user1AcceptedAt
+      : match.user2AcceptedAt;
+
+    if (alreadyAccepted) {
+      return this.mapToResponseDto(match);
+    }
+
+    const now = new Date();
+    const userAcceptance: QueryDeepPartialEntity<Match> = isUser1
+      ? { user1AcceptedAt: now }
+      : { user2AcceptedAt: now };
+
+    const otherAlreadyAccepted = isUser1
+      ? match.user2AcceptedAt
+      : match.user1AcceptedAt;
+
+    if (otherAlreadyAccepted) {
+      userAcceptance.status = MatchStatus.ACCEPTED;
+      userAcceptance.acceptedAt = now;
+      userAcceptance.isMutual = true;
+    }
+
+    await this.matchRepository.update(id, userAcceptance);
 
     const updatedMatch = await this.matchRepository.findOne({
       where: { id },
@@ -237,11 +263,21 @@ export class MatchesService {
       throw new BadRequestException('Match is not pending');
     }
 
-    // Mettre à jour le statut du match
-    await this.matchRepository.update(id, {
+    const now = new Date();
+    const isUser1 = match.user1Id === userId;
+    const rejectionData: QueryDeepPartialEntity<Match> = {
       status: MatchStatus.REJECTED,
-      rejectedAt: new Date(),
-    });
+      rejectedAt: now,
+      isMutual: false,
+    };
+
+    if (isUser1) {
+      rejectionData.user1RejectedAt = now;
+    } else {
+      rejectionData.user2RejectedAt = now;
+    }
+
+    await this.matchRepository.update(id, rejectionData);
 
     const updatedMatch = await this.matchRepository.findOne({
       where: { id },
@@ -355,9 +391,23 @@ export class MatchesService {
         const existingMatch = await this.findExistingMatch(
           profiles[i].userId,
           profiles[j].userId,
+          matchDate,
         );
 
         if (existingMatch) continue;
+
+        try {
+          await this.validateDailyMatchLimit(
+            profiles[i].userId,
+            profiles[j].userId,
+            matchDate.toISOString(),
+          );
+        } catch (error) {
+          if (error instanceof ConflictException) {
+            continue;
+          }
+          throw error;
+        }
 
         // Calculer le score de compatibilité
         const compatibilityScore = await this.calculateCompatibilityScore(
@@ -419,12 +469,28 @@ export class MatchesService {
   private async findExistingMatch(
     user1Id: string,
     user2Id: string,
+    matchDate?: Date,
   ): Promise<Match | null> {
+    const statusFilter = In([MatchStatus.PENDING, MatchStatus.ACCEPTED]);
+    const where: any[] = [
+      { user1Id, user2Id, isActive: true, status: statusFilter },
+      {
+        user1Id: user2Id,
+        user2Id: user1Id,
+        isActive: true,
+        status: statusFilter,
+      },
+    ];
+
+    if (matchDate) {
+      const { start, end } = this.getDayRange(matchDate);
+      where.forEach((clause) => {
+        clause.matchDate = Between(start, end);
+      });
+    }
+
     return this.matchRepository.findOne({
-      where: [
-        { user1Id, user2Id, isActive: true },
-        { user1Id: user2Id, user2Id: user1Id, isActive: true },
-      ],
+      where,
     });
   }
 
@@ -433,26 +499,44 @@ export class MatchesService {
     user2Id: string,
     matchDate: string,
   ): Promise<void> {
-    const date = new Date(matchDate);
-    const nextDay = new Date(date);
-    nextDay.setDate(nextDay.getDate() + 1);
+    const { start, end } = this.getDayRange(matchDate);
 
     const user1Matches = await this.matchRepository.count({
-      where: {
-        user1Id,
-        matchDate: Between(date, nextDay),
-        type: MatchType.DAILY,
-        isActive: true,
-      },
+      where: [
+        {
+          user1Id,
+          matchDate: Between(start, end),
+          type: MatchType.DAILY,
+          isActive: true,
+          status: In([MatchStatus.PENDING, MatchStatus.ACCEPTED]),
+        },
+        {
+          user2Id: user1Id,
+          matchDate: Between(start, end),
+          type: MatchType.DAILY,
+          isActive: true,
+          status: In([MatchStatus.PENDING, MatchStatus.ACCEPTED]),
+        },
+      ],
     });
 
     const user2Matches = await this.matchRepository.count({
-      where: {
-        user2Id,
-        matchDate: Between(date, nextDay),
-        type: MatchType.DAILY,
-        isActive: true,
-      },
+      where: [
+        {
+          user1Id: user2Id,
+          matchDate: Between(start, end),
+          type: MatchType.DAILY,
+          isActive: true,
+          status: In([MatchStatus.PENDING, MatchStatus.ACCEPTED]),
+        },
+        {
+          user2Id,
+          matchDate: Between(start, end),
+          type: MatchType.DAILY,
+          isActive: true,
+          status: In([MatchStatus.PENDING, MatchStatus.ACCEPTED]),
+        },
+      ],
     });
 
     if (
@@ -605,6 +689,16 @@ export class MatchesService {
     return expiryTime;
   }
 
+  private getDayRange(dateInput: string | Date): { start: Date; end: Date } {
+    const date = new Date(dateInput);
+    const start = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+    );
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 1);
+    return { start, end };
+  }
+
   private mapToResponseDto(match: Match): MatchResponseDto {
     return {
       id: match.id,
@@ -619,7 +713,11 @@ export class MatchesService {
       matchDate: match.matchDate,
       expiresAt: match.expiresAt,
       acceptedAt: match.acceptedAt,
+      user1AcceptedAt: match.user1AcceptedAt,
+      user2AcceptedAt: match.user2AcceptedAt,
       rejectedAt: match.rejectedAt,
+      user1RejectedAt: match.user1RejectedAt,
+      user2RejectedAt: match.user2RejectedAt,
       cancelledAt: match.cancelledAt,
       expiredAt: match.expiredAt,
       isActive: match.isActive,

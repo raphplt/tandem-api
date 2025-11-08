@@ -123,7 +123,11 @@ export class Conversation {
   }
 
   get isActiveConversation(): boolean {
-    return this.status === ConversationStatus.ACTIVE && !this.isExpired;
+    return (
+      this.isActive &&
+      this.status === ConversationStatus.ACTIVE &&
+      !this.isExpired
+    );
   }
 
   get timeUntilExpiry(): number {

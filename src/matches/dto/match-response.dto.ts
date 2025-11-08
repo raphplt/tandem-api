@@ -96,11 +96,37 @@ export class MatchResponseDto {
   acceptedAt?: Date;
 
   @ApiProperty({
+    description: 'Acceptance timestamp from user1',
+    example: '2024-01-01T12:00:00.000Z',
+    required: false,
+  })
+  user1AcceptedAt?: Date;
+
+  @ApiProperty({
+    description: 'Acceptance timestamp from user2',
+    example: '2024-01-01T12:05:00.000Z',
+    required: false,
+  })
+  user2AcceptedAt?: Date;
+
+  @ApiProperty({
     description: 'Rejection timestamp',
     example: '2024-01-01T12:00:00.000Z',
     required: false,
   })
   rejectedAt?: Date;
+
+  @ApiProperty({
+    description: 'Rejection timestamp from user1',
+    required: false,
+  })
+  user1RejectedAt?: Date;
+
+  @ApiProperty({
+    description: 'Rejection timestamp from user2',
+    required: false,
+  })
+  user2RejectedAt?: Date;
 
   @ApiProperty({
     description: 'Cancellation timestamp',
