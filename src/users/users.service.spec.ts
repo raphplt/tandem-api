@@ -4,10 +4,8 @@ import { Repository } from 'typeorm';
 import {
   ConflictException,
   NotFoundException,
-  BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -20,7 +18,6 @@ describe('UsersService', () => {
   const mockUser: User = {
     id: '123e4567-e89b-12d3-a456-426614174000',
     email: 'test@example.com',
-    password: 'hashedPassword',
     firstName: 'John',
     lastName: 'Doe',
     dateOfBirth: new Date('1990-01-01'),
@@ -72,7 +69,6 @@ describe('UsersService', () => {
   describe('create', () => {
     const createUserDto: CreateUserDto = {
       email: 'test@example.com',
-      password: 'Password123',
       firstName: 'John',
       lastName: 'Doe',
       dateOfBirth: '1990-01-01',
@@ -115,41 +111,6 @@ describe('UsersService', () => {
       );
     });
 
-    it('should throw BadRequestException for weak password', async () => {
-      const weakPasswordDto = { ...createUserDto, password: 'weak' };
-      mockRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.create(weakPasswordDto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw BadRequestException for password without uppercase', async () => {
-      const weakPasswordDto = { ...createUserDto, password: 'password123' };
-      mockRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.create(weakPasswordDto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw BadRequestException for password without lowercase', async () => {
-      const weakPasswordDto = { ...createUserDto, password: 'PASSWORD123' };
-      mockRepository.findOne.mockResolvedValue(null); // No existing user
-
-      await expect(service.create(weakPasswordDto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw BadRequestException for password without numbers', async () => {
-      const weakPasswordDto = { ...createUserDto, password: 'Password' };
-      mockRepository.findOne.mockResolvedValue(null); // No existing user
-
-      await expect(service.create(weakPasswordDto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
   });
 
   describe('findAll', () => {
@@ -259,25 +220,6 @@ describe('UsersService', () => {
       await expect(
         service.update('other-user-id', updateUserDto, mockUser.id),
       ).rejects.toThrow(ForbiddenException);
-    });
-
-    it('should hash password if provided in update', async () => {
-      const updateWithPassword = {
-        ...updateUserDto,
-        password: 'NewPassword123',
-      };
-      const updatedUser = { ...mockUser, ...updateWithPassword };
-      mockRepository.findOne
-        .mockResolvedValueOnce(mockUser)
-        .mockResolvedValueOnce(updatedUser);
-      mockRepository.update.mockResolvedValue({ affected: 1 });
-
-      await service.update(mockUser.id, updateWithPassword);
-
-      expect(mockRepository.update).toHaveBeenCalledWith(mockUser.id, {
-        ...updateWithPassword,
-        password: expect.any(String), // Should be hashed
-      });
     });
 
     it('should throw ConflictException if email already exists', async () => {

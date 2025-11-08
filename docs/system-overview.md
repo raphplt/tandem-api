@@ -1,8 +1,8 @@
-# Architecture Solow API
+# Architecture Wetwo API
 
 ## Schéma de base de données
 
-- **users** : `id` uuid, `email`/`phone`/`apple_sub`/`google_sub` uniques et optionnels, `password` hash nullable, `roles` text[] (défaut `[user]`), `is_active`, `last_login_at`, `last_logout_at`, `onboarded_at`, timestamps ; relations 1‑1 `profiles`/`profile_preferences`, 1‑n `user_auth_methods`/`sessions`/`photos`/`verifications`/`audit_logs`. (`src/users/entities/user.entity.ts:21`)
+- **users** : `id` uuid, `email`/`phone`/`apple_sub`/`google_sub` uniques et optionnels, `roles` text[] (défaut `[user]`), `is_active`, `last_login_at`, `last_logout_at`, `onboarded_at`, timestamps ; relations 1‑1 `profiles`/`profile_preferences`, 1‑n `user_auth_methods`/`sessions`/`photos`/`verifications`/`audit_logs`. (`src/users/entities/user.entity.ts:21`)
 - **user_auth_methods** : uuid, FK `user_id` (CASCADE), enum `type` {apple, google, phone, email}, `identifier` indexé, bool `is_primary`, `last_used_at`, timestamps. (`src/users/entities/user-auth-method.entity.ts:19`)
 - **sessions** : uuid, FK `user_id`, `device_id`, `refresh_token_hash`, `expires_at` timestamptz, `created_at`. (`src/users/entities/session.entity.ts:10`)
 - **photos** : uuid, FK `user_id`, `url`, `position`, bool `is_active`, timestamps. (`src/users/entities/photo.entity.ts:11`)

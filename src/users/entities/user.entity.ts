@@ -39,10 +39,6 @@ export class User {
   @Index()
   googleSub?: string;
 
-  //TODO : ce champ n'est pas utilisé car on utilise better auth à la place : better_auth_account.password
-  @Column({ nullable: true, select: false })
-  password?: string;
-
   @Column({ nullable: true })
   firstName?: string;
 

@@ -2,12 +2,10 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-  BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcryptjs';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -16,18 +14,13 @@ import { UserRole } from 'src/common/enums/user.enums';
 
 @Injectable()
 export class UsersService {
-  private readonly SALT_ROUNDS = 12;
-  private readonly MIN_PASSWORD_LENGTH = 8;
-  private readonly MAX_PASSWORD_LENGTH = 128;
-
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<UserResponseDto> {
-    const { email, password, firstName, lastName, dateOfBirth, roles } =
-      createUserDto;
+    const { email, firstName, lastName, dateOfBirth, roles } = createUserDto;
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({
@@ -38,16 +31,9 @@ export class UsersService {
       throw new ConflictException('User with this email already exists');
     }
 
-    // Validate password strength
-    this.validatePassword(password);
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, this.SALT_ROUNDS);
-
     // Create user
     const user = this.userRepository.create({
       email,
-      password: hashedPassword,
       firstName,
       lastName,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
@@ -101,15 +87,6 @@ export class UsersService {
 
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
-    }
-
-    // If password is being updated, validate and hash it
-    if (updateUserDto.password) {
-      this.validatePassword(updateUserDto.password);
-      updateUserDto.password = await bcrypt.hash(
-        updateUserDto.password,
-        this.SALT_ROUNDS,
-      );
     }
 
     // Check for email conflicts if email is being updated
@@ -228,31 +205,6 @@ export class UsersService {
       .getMany();
 
     return users.map((user) => this.mapToResponseDto(user));
-  }
-
-  private validatePassword(password: string): void {
-    if (password.length < this.MIN_PASSWORD_LENGTH) {
-      throw new BadRequestException(
-        `Password must be at least ${this.MIN_PASSWORD_LENGTH} characters long`,
-      );
-    }
-
-    if (password.length > this.MAX_PASSWORD_LENGTH) {
-      throw new BadRequestException(
-        `Password must not exceed ${this.MAX_PASSWORD_LENGTH} characters`,
-      );
-    }
-
-    // Check for at least one uppercase letter, one lowercase letter, and one number
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasNumbers = /\d/.test(password);
-
-    if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
-      throw new BadRequestException(
-        'Password must contain at least one uppercase letter, one lowercase letter, and one number',
-      );
-    }
   }
 
   private mapToResponseDto(user: User): UserResponseDto {

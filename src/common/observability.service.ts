@@ -20,7 +20,7 @@ export class ObservabilityService implements OnModuleInit {
           },
         }),
       ],
-      serviceName: this.configService.get('OTEL_SERVICE_NAME', 'solow-api'),
+      serviceName: this.configService.get('OTEL_SERVICE_NAME', 'wetwo-api'),
     });
 
     sdk.start();
