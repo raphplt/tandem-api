@@ -50,9 +50,7 @@ export class WsAuthGuard implements CanActivate {
     const headers = this.collectHeaders(client);
 
     try {
-      const session = await this.betterAuthService.getSession(
-        headers as any,
-      );
+      const session = await this.betterAuthService.getSession(headers as any);
 
       if (!session?.user) {
         throw new UnauthorizedException('No valid session found');
@@ -81,10 +79,8 @@ export class WsAuthGuard implements CanActivate {
   }
 
   private collectHeaders(client: Socket): Record<string, string> {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string | undefined> = {};
 
-    // Collecter les headers du handshake (dont Authorization si fourni)
-    // En mode Bearer-only, l'auth repose sur le header Authorization
     for (const [key, value] of Object.entries(client.handshake.headers)) {
       if (Array.isArray(value)) {
         if (value.length > 0 && typeof value[0] === 'string') {
@@ -95,7 +91,71 @@ export class WsAuthGuard implements CanActivate {
       }
     }
 
-    return headers;
+    const authorization =
+      this.normalizeAuthorizationHeader(headers.authorization) ??
+      this.extractTokenFromHandshake(client);
+
+    if (authorization) {
+      headers.authorization = authorization;
+    }
+
+    const sanitizedHeaders: Record<string, string> = {};
+    for (const [key, value] of Object.entries(headers)) {
+      if (typeof value === 'string') {
+        sanitizedHeaders[key] = value;
+      }
+    }
+
+    return sanitizedHeaders;
+  }
+
+  private extractTokenFromHandshake(client: Socket): string | undefined {
+    const authToken = this.normalizeToken(client.handshake.auth?.token);
+    if (authToken) {
+      return authToken.startsWith('Bearer ')
+        ? authToken
+        : `Bearer ${authToken}`;
+    }
+
+    const queryToken = this.normalizeToken(client.handshake.query?.token);
+    if (queryToken) {
+      return `Bearer ${queryToken}`;
+    }
+
+    const headerToken = this.normalizeAuthorizationHeader(
+      client.handshake.headers?.authorization as string | undefined,
+    );
+
+    return headerToken;
+  }
+
+  private normalizeAuthorizationHeader(value?: string): string | undefined {
+    if (!value || typeof value !== 'string') {
+      return undefined;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    return trimmed.startsWith('Bearer ') ? trimmed : `Bearer ${trimmed}`;
+  }
+
+  private normalizeToken(token: unknown): string | undefined {
+    if (typeof token === 'string') {
+      const trimmed = token.trim();
+      return trimmed.length ? trimmed : undefined;
+    }
+
+    if (Array.isArray(token)) {
+      const candidate = token.find((value) => typeof value === 'string');
+      if (typeof candidate === 'string') {
+        return this.normalizeToken(candidate);
+      }
+    }
+
+    return undefined;
   }
 
   private extractNames(
