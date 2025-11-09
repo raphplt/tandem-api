@@ -45,6 +45,7 @@ export class ConversationsService {
     // Validate that match exists and is accepted
     const match = await this.matchRepository.findOne({
       where: { id: matchId, isActive: true },
+      relations: ['profile1', 'profile2'],
     });
 
     if (!match) {
@@ -84,7 +85,16 @@ export class ConversationsService {
 
     const savedConversation =
       await this.conversationRepository.save(conversation);
-    return this.mapToResponseDto(savedConversation);
+
+    // Reload with relations
+    const conversationWithRelations = await this.conversationRepository.findOne(
+      {
+        where: { id: savedConversation.id },
+        relations: ['match', 'match.profile1', 'match.profile2'],
+      },
+    );
+
+    return this.mapToResponseDto(conversationWithRelations!);
   }
 
   async findAll(): Promise<ConversationResponseDto[]> {
@@ -101,6 +111,7 @@ export class ConversationsService {
   async findOne(id: string): Promise<ConversationResponseDto> {
     const conversation = await this.conversationRepository.findOne({
       where: { id },
+      relations: ['match', 'match.profile1', 'match.profile2'],
     });
 
     if (!conversation) {
@@ -116,6 +127,7 @@ export class ConversationsService {
         { user1Id: userId, isActive: true },
         { user2Id: userId, isActive: true },
       ],
+      relations: ['match', 'match.profile1', 'match.profile2'],
       order: { lastMessageAt: 'DESC', createdAt: 'DESC' },
     });
 
@@ -132,6 +144,7 @@ export class ConversationsService {
         { user1Id: userId, status: ConversationStatus.ACTIVE, isActive: true },
         { user2Id: userId, status: ConversationStatus.ACTIVE, isActive: true },
       ],
+      relations: ['match', 'match.profile1', 'match.profile2'],
       order: { createdAt: 'DESC' },
     });
 
@@ -139,7 +152,6 @@ export class ConversationsService {
       return null;
     }
 
-    // Check if conversation has expired
     if (conversation.isExpired) {
       await this.expireConversation(conversation.id);
       return null;
@@ -155,6 +167,7 @@ export class ConversationsService {
   ): Promise<ConversationResponseDto> {
     const conversation = await this.conversationRepository.findOne({
       where: { id },
+      relations: ['match', 'match.profile1', 'match.profile2'],
     });
 
     if (!conversation) {
@@ -177,6 +190,7 @@ export class ConversationsService {
 
     const updatedConversation = await this.conversationRepository.findOne({
       where: { id },
+      relations: ['match', 'match.profile1', 'match.profile2'],
     });
 
     return this.mapToResponseDto(updatedConversation!);
@@ -188,6 +202,7 @@ export class ConversationsService {
   ): Promise<ConversationResponseDto> {
     const conversation = await this.conversationRepository.findOne({
       where: { id },
+      relations: ['match', 'match.profile1', 'match.profile2'],
     });
 
     if (!conversation) {
@@ -231,6 +246,7 @@ export class ConversationsService {
 
     const updatedConversation = await this.conversationRepository.findOne({
       where: { id },
+      relations: ['match', 'match.profile1', 'match.profile2'],
     });
 
     return this.mapToResponseDto(updatedConversation!);
@@ -242,6 +258,7 @@ export class ConversationsService {
   ): Promise<ConversationResponseDto> {
     const conversation = await this.conversationRepository.findOne({
       where: { id },
+      relations: ['match', 'match.profile1', 'match.profile2'],
     });
 
     if (!conversation) {
@@ -266,6 +283,7 @@ export class ConversationsService {
 
     const updatedConversation = await this.conversationRepository.findOne({
       where: { id },
+      relations: ['match', 'match.profile1', 'match.profile2'],
     });
 
     return this.mapToResponseDto(updatedConversation!);
@@ -277,6 +295,7 @@ export class ConversationsService {
   ): Promise<ConversationResponseDto> {
     const conversation = await this.conversationRepository.findOne({
       where: { id },
+      relations: ['match', 'match.profile1', 'match.profile2'],
     });
 
     if (!conversation) {
@@ -298,6 +317,7 @@ export class ConversationsService {
 
     const updatedConversation = await this.conversationRepository.findOne({
       where: { id },
+      relations: ['match', 'match.profile1', 'match.profile2'],
     });
 
     return this.mapToResponseDto(updatedConversation!);
@@ -309,6 +329,7 @@ export class ConversationsService {
   ): Promise<ConversationResponseDto> {
     const conversation = await this.conversationRepository.findOne({
       where: { id },
+      relations: ['match', 'match.profile1', 'match.profile2'],
     });
 
     if (!conversation) {
@@ -342,6 +363,7 @@ export class ConversationsService {
 
     const updatedConversation = await this.conversationRepository.findOne({
       where: { id },
+      relations: ['match', 'match.profile1', 'match.profile2'],
     });
 
     return this.mapToResponseDto(updatedConversation!);
@@ -417,6 +439,7 @@ export class ConversationsService {
   ): Promise<ConversationResponseDto> {
     const match = await this.matchRepository.findOne({
       where: { id: matchId, isActive: true },
+      relations: ['profile1', 'profile2'],
     });
 
     if (!match) {
@@ -424,7 +447,9 @@ export class ConversationsService {
     }
 
     if (match.user1Id !== currentUserId && match.user2Id !== currentUserId) {
-      throw new ForbiddenException('You can only create conversations for your matches');
+      throw new ForbiddenException(
+        'You can only create conversations for your matches',
+      );
     }
 
     if (match.status !== 'accepted') {
@@ -468,7 +493,16 @@ export class ConversationsService {
 
     const savedConversation =
       await this.conversationRepository.save(conversation);
-    return this.mapToResponseDto(savedConversation);
+
+    // Reload with relations
+    const conversationWithRelations = await this.conversationRepository.findOne(
+      {
+        where: { id: savedConversation.id },
+        relations: ['match', 'match.profile1', 'match.profile2'],
+      },
+    );
+
+    return this.mapToResponseDto(conversationWithRelations!);
   }
 
   private async validateUsersExist(userIds: string[]): Promise<void> {
@@ -500,6 +534,8 @@ export class ConversationsService {
       id: conversation.id,
       user1Id: conversation.user1Id,
       user2Id: conversation.user2Id,
+      profile1: conversation.match.profile1,
+      profile2: conversation.match.profile2,
       matchId: conversation.matchId,
       status: conversation.status,
       type: conversation.type,

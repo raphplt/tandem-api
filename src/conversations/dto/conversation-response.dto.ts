@@ -3,6 +3,7 @@ import {
   ConversationStatus,
   ConversationType,
 } from '../entities/conversation.entity';
+import { Profile } from 'src/profiles/entities/profile.entity';
 
 export class ConversationResponseDto {
   @ApiProperty({
@@ -22,6 +23,10 @@ export class ConversationResponseDto {
     example: '123e4567-e89b-12d3-a456-426614174001',
   })
   user2Id: string;
+
+  profile1: Profile;
+
+  profile2: Profile;
 
   @ApiProperty({
     description: 'Match ID',

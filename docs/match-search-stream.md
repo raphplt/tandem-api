@@ -27,7 +27,8 @@ Ce document décrit le fonctionnement du nouvel endpoint SSE `/matches/search/st
 ## Architecture backend
 
 - `AvailabilityService` publie `availability.status.<userId>` via `EventEmitter2` dès qu'un statut est persisté (join/leave queue, heartbeat, matched…).
-- `MatchesService` publie `matches.found.<userId>` quand un match `daily` est créé (`create` manuel ou `generateDailyMatches`).
+- `MatchmakingService` (cron toutes les 30 s) lit la file `availability` (`status=queued`, `isOnline=true`), appaire les utilisateurs disponibles et crée un match `daily` via `MatchesService.create`. Les disponibilités sont immédiatement marquées `matched`, ce qui fait retomber le SSE `search_state` sur le front.
+- `MatchesService` publie `matches.found.<userId>` quand un match `daily` est créé, qu'il provienne du cron ou d'une création admin.
 - `MatchSearchStreamService` (Nest) agrège ces événements en `Observable<MessageEvent>` : il renvoie l'état initial (disponibilité + match éventuel), s'abonne aux events, et injecte le `heartbeat`.
 - `MatchesController` expose `@Sse('search/stream')` et renvoie simplement l'observable du service.
 

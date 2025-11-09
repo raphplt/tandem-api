@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { MatchStatus, MatchType } from '../entities/match.entity';
+import { Profile } from 'src/profiles/entities/profile.entity';
 
 export class MatchResponseDto {
   @ApiProperty({
@@ -31,6 +32,30 @@ export class MatchResponseDto {
     example: '123e4567-e89b-12d3-a456-426614174001',
   })
   profile2Id: string;
+
+  @ApiProperty({
+    description: 'First profile',
+    example: {
+      id: '123e4567-e89b-12d3-a456-426614174000',
+      userId: '123e4567-e89b-12d3-a456-426614174000',
+      age: 30,
+      location: 'Paris',
+      interests: ['music', 'travel'],
+    },
+  })
+  profile1: Profile;
+
+  @ApiProperty({
+    description: 'Second profile',
+    example: {
+      id: '123e4567-e89b-12d3-a456-426614174001',
+      userId: '123e4567-e89b-12d3-a456-426614174001',
+      age: 28,
+      location: 'Lyon',
+      interests: ['sports', 'cooking'],
+    },
+  })
+  profile2: Profile;
 
   @ApiProperty({
     description: 'Match status',

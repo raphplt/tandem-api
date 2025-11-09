@@ -137,6 +137,7 @@ Pour éviter le polling lors du lancement d'un match quotidien, un flux SSE (`Ev
 4. Sur `match_found`, naviguer vers l'écran de match (le payload contient tout le `MatchResponse`).
 
 > ℹ️ Le flux SSE repose sur la table `availability` : tant que l'utilisateur est `queued` ✅ et « online », le backend peut l'apparier. Le front doit continuer à envoyer des heartbeats (`POST /availability/heartbeat`) toutes les ~2 minutes pour conserver `isOnline=true`.
+> ⚙️ Le cron `MatchmakingService` (toutes les 30 s) récupère les utilisateurs `queued` et crée automatiquement une paire si deux profils complets sont disponibles. Le front n'a rien à faire côté client sinon rester connecté au SSE.
 
 ## Système de conversations & messages
 

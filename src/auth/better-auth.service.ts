@@ -30,7 +30,7 @@ export class BetterAuthService {
 
     this.auth = betterAuth({
       database: typeORMAdapter.createAdapter({
-        debugLogs: this.configService.get('NODE_ENV') === 'development',
+        // debugLogs: this.configService.get('NODE_ENV') === 'development',
       }),
       plugins: [bearer()],
       emailAndPassword: {

@@ -19,7 +19,7 @@ import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity
 @Injectable()
 export class MatchesService {
   private readonly MATCH_EXPIRY_HOURS = 24;
-  private readonly MIN_COMPATIBILITY_SCORE = 60;
+  private readonly MIN_COMPATIBILITY_SCORE = 50;
   private readonly MAX_DAILY_MATCHES = 1;
   private readonly SCORING_WEIGHTS = {
     ageCompatibility: 0.2,
@@ -141,6 +141,7 @@ export class MatchesService {
         isActive: true,
         type: MatchType.DAILY,
       },
+      relations: ['profile1', 'profile2'],
     });
 
     if (!match) {
@@ -151,6 +152,7 @@ export class MatchesService {
           isActive: true,
           type: MatchType.DAILY,
         },
+        relations: ['profile1', 'profile2'],
       });
       return match2 ? this.mapToResponseDto(match2) : null;
     }
@@ -711,6 +713,8 @@ export class MatchesService {
       user2Id: match.user2Id,
       profile1Id: match.profile1Id,
       profile2Id: match.profile2Id,
+      profile1: match.profile1,
+      profile2: match.profile2,
       status: match.status,
       type: match.type,
       compatibilityScore: match.compatibilityScore,

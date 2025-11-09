@@ -127,5 +127,9 @@ export class CreateMatchDto {
     timezoneOffset?: number;
     user1Preferences?: any;
     user2Preferences?: any;
+    queuedAt?: {
+      user1?: string | Date;
+      user2?: string | Date;
+    };
   };
 }

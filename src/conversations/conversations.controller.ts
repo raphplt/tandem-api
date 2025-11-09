@@ -14,6 +14,7 @@ import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser, Roles } from '../auth/decorators';
+import { User } from 'src/users/entities/user.entity';
 
 @Controller('conversations')
 @UseGuards(AuthGuard, RolesGuard)
@@ -33,24 +34,28 @@ export class ConversationsController {
   }
 
   @Get('me')
-  findMine(@CurrentUser() user: any) {
+  findMine(@CurrentUser() user: User) {
     return this.conversationsService.findByUserId(user.id);
   }
 
   @Get('active/me')
-  findActive(@CurrentUser() user: any) {
+  findActive(@CurrentUser() user: User) {
     return this.conversationsService.findActiveConversation(user.id);
   }
 
   @Get(':id')
-  @Roles('admin')
+  //TODO : ajouter une vérification pour s'assurer que l'utilisateur a le droit d'accéder à cette conversation
+  // @Roles('admin')
   findOne(@Param('id') id: string) {
     return this.conversationsService.findOne(id);
   }
 
   @Patch(':id')
   @Roles('admin')
-  update(@Param('id') id: string, @Body() updateConversationDto: UpdateConversationDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateConversationDto: UpdateConversationDto,
+  ) {
     return this.conversationsService.update(id, updateConversationDto);
   }
 

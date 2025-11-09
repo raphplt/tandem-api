@@ -8,15 +8,17 @@ import { User } from '../users/entities/user.entity';
 import { AuthModule } from '../auth/auth.module';
 import { MatchSearchStreamService } from './match-search-stream.service';
 import { AvailabilityModule } from '../availability/availability.module';
+import { MatchmakingService } from './matchmaking.service';
+import { Availability } from '../availability/entities/availability.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Match, Profile, User]),
+    TypeOrmModule.forFeature([Match, Profile, User, Availability]),
     AuthModule,
     AvailabilityModule,
   ],
   controllers: [MatchesController],
-  providers: [MatchesService, MatchSearchStreamService],
+  providers: [MatchesService, MatchSearchStreamService, MatchmakingService],
   exports: [MatchesService],
 })
 export class MatchesModule {}
