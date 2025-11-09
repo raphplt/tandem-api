@@ -32,10 +32,11 @@
 
 ## Système de matching
 
-- `MatchesService.create` vérifie l’existence des utilisateurs/profils, l’unicité du couple et la limite quotidienne (1 match par jour) avant toute insertion. (`src/matches/matches.service.ts:41`)
+- `MatchesService.create` vérifie l'existence des utilisateurs/profils, l'unicité du couple et la limite quotidienne (1 match par jour) avant toute insertion. (`src/matches/matches.service.ts:41`)
 - Le score de compatibilité (calculé si absent) pondère âge, localisation, intérêts, valeurs, activité, taux de réponse et vérification ; seuil minimum 60/100 pour créer un match. (`src/matches/matches.service.ts:59`, `src/matches/matches.service.ts:124`)
-- Les actions accept/reject/cancel contrôlent que l’appelant est l’un des participants, puis historisent l’événement via les colonnes temporelles et le `MatchStatus`. (`src/matches/matches.service.ts:183`, `src/matches/matches.service.ts:212`)
-- `generateDailyMatches` applique un algorithme greedy : parcours des profils actifs complets (`profiles.isComplete`), calcul du score puis création d’un match si le seuil est atteint, en annotant le `metadata.matchingAlgorithm`. (`src/matches/matches.service.ts:257`)
+- Les actions accept/reject/cancel contrôlent que l'appelant est l'un des participants, puis historisent l'événement via les colonnes temporelles et le `MatchStatus`. (`src/matches/matches.service.ts:183`, `src/matches/matches.service.ts:212`)
+- Quand `FEATURE_TEST_ACCOUNTS=true`, le `MatchmakingService` injecte des profils tests (seedés) lorsqu'aucun second utilisateur n'est disponible dans la file et crée un match `daily` auto-accepté du côté du bot. (`src/matches/matchmaking.service.ts:1`)
+- `generateDailyMatches` applique un algorithme greedy : parcours des profils actifs complets (`profiles.isComplete`), calcul du score puis création d’un match si le seuil est atteint, en annotant le `metadata.matchingAlgorithm`. (`src/matches/matches.service.ts:257`)
 - `MatchmakingService` (cron 30 s) inspecte la file `availability` (`status=queued`, `isOnline=true`) et crée des paires quotidiennes via `MatchesService.create`, puis marque les disponibilités en `matched`. (`src/matches/matchmaking.service.ts:1`)
 - La table `availability` sert à suivre le statut temps réel (idle / queued / matched / busy / offline) et stocke préférences et métadonnées de session pour orchestrer les paires quotidiennes. (`src/availability/entities/availability.entity.ts:21`)
 

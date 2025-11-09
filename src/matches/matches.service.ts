@@ -16,6 +16,11 @@ import { Profile } from '../profiles/entities/profile.entity';
 import { User } from '../users/entities/user.entity';
 import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 
+interface MatchCreationOptions {
+  skipDailyLimitFor?: string[];
+  autoAcceptUserIds?: string[];
+}
+
 @Injectable()
 export class MatchesService {
   private readonly MATCH_EXPIRY_HOURS = 24;
@@ -41,7 +46,10 @@ export class MatchesService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
-  async create(createMatchDto: CreateMatchDto): Promise<MatchResponseDto> {
+  async create(
+    createMatchDto: CreateMatchDto,
+    options: MatchCreationOptions = {},
+  ): Promise<MatchResponseDto> {
     const { user1Id, user2Id, profile1Id, profile2Id, matchDate } =
       createMatchDto;
     const normalizedMatchDate = new Date(matchDate);
@@ -61,7 +69,17 @@ export class MatchesService {
     }
 
     // Vérifier si les utilisateurs ont déjà un match quotidien
-    await this.validateDailyMatchLimit(user1Id, user2Id, matchDate);
+    const skipLimitUsers =
+      options.skipDailyLimitFor && options.skipDailyLimitFor.length > 0
+        ? new Set(options.skipDailyLimitFor)
+        : undefined;
+
+    await this.validateDailyMatchLimit(
+      user1Id,
+      user2Id,
+      matchDate,
+      skipLimitUsers,
+    );
 
     // Calculer le score de compatibilité si non fourni
     const compatibilityScore =
@@ -87,7 +105,12 @@ export class MatchesService {
       isMutual: false,
     });
 
-    const savedMatch = await this.matchRepository.save(match);
+    let savedMatch = await this.matchRepository.save(match);
+    savedMatch = await this.applyAutoAcceptance(
+      savedMatch,
+      options.autoAcceptUserIds,
+    );
+
     const response = this.mapToResponseDto(savedMatch);
     this.emitMatchFound(response);
     return response;
@@ -505,50 +528,45 @@ export class MatchesService {
     user1Id: string,
     user2Id: string,
     matchDate: string,
+    skippedUsers?: Set<string>,
   ): Promise<void> {
     const { start, end } = this.getDayRange(matchDate);
+    const shouldCheckUser1 = !skippedUsers?.has(user1Id);
+    const shouldCheckUser2 = !skippedUsers?.has(user2Id);
 
-    const user1Matches = await this.matchRepository.count({
-      where: [
-        {
-          user1Id,
-          matchDate: Between(start, end),
-          type: MatchType.DAILY,
-          isActive: true,
-          status: In([MatchStatus.PENDING, MatchStatus.ACCEPTED]),
-        },
-        {
-          user2Id: user1Id,
-          matchDate: Between(start, end),
-          type: MatchType.DAILY,
-          isActive: true,
-          status: In([MatchStatus.PENDING, MatchStatus.ACCEPTED]),
-        },
-      ],
-    });
+    if (!shouldCheckUser1 && !shouldCheckUser2) {
+      return;
+    }
 
-    const user2Matches = await this.matchRepository.count({
-      where: [
-        {
-          user1Id: user2Id,
-          matchDate: Between(start, end),
-          type: MatchType.DAILY,
-          isActive: true,
-          status: In([MatchStatus.PENDING, MatchStatus.ACCEPTED]),
-        },
-        {
-          user2Id,
-          matchDate: Between(start, end),
-          type: MatchType.DAILY,
-          isActive: true,
-          status: In([MatchStatus.PENDING, MatchStatus.ACCEPTED]),
-        },
-      ],
-    });
+    const baseFilter = {
+      matchDate: Between(start, end),
+      type: MatchType.DAILY,
+      isActive: true,
+      status: In([MatchStatus.PENDING, MatchStatus.ACCEPTED]),
+    };
+
+    const [user1Matches, user2Matches] = await Promise.all([
+      shouldCheckUser1
+        ? this.matchRepository.count({
+            where: [
+              { user1Id, ...baseFilter },
+              { user2Id: user1Id, ...baseFilter },
+            ],
+          })
+        : Promise.resolve(0),
+      shouldCheckUser2
+        ? this.matchRepository.count({
+            where: [
+              { user1Id: user2Id, ...baseFilter },
+              { user2Id, ...baseFilter },
+            ],
+          })
+        : Promise.resolve(0),
+    ]);
 
     if (
-      user1Matches >= this.MAX_DAILY_MATCHES ||
-      user2Matches >= this.MAX_DAILY_MATCHES
+      (shouldCheckUser1 && user1Matches >= this.MAX_DAILY_MATCHES) ||
+      (shouldCheckUser2 && user2Matches >= this.MAX_DAILY_MATCHES)
     ) {
       throw new ConflictException('Users already have their daily match limit');
     }
@@ -741,6 +759,45 @@ export class MatchesService {
       daysSinceMatch: match.daysSinceMatch,
       timeUntilExpiry: match.timeUntilExpiry || undefined,
     };
+  }
+
+  private async applyAutoAcceptance(
+    match: Match,
+    autoAcceptUserIds?: string[],
+  ): Promise<Match> {
+    if (!autoAcceptUserIds || autoAcceptUserIds.length === 0) {
+      return match;
+    }
+
+    const autoAcceptSet = new Set(autoAcceptUserIds);
+    const update: QueryDeepPartialEntity<Match> = {};
+    const now = new Date();
+    const user1AutoAccepted =
+      autoAcceptSet.has(match.user1Id) && !match.user1AcceptedAt;
+    const user2AutoAccepted =
+      autoAcceptSet.has(match.user2Id) && !match.user2AcceptedAt;
+
+    if (!user1AutoAccepted && !user2AutoAccepted) {
+      return match;
+    }
+
+    if (user1AutoAccepted) {
+      update.user1AcceptedAt = now;
+    }
+
+    if (user2AutoAccepted) {
+      update.user2AcceptedAt = now;
+    }
+
+    if (user1AutoAccepted && user2AutoAccepted) {
+      update.status = MatchStatus.ACCEPTED;
+      update.acceptedAt = now;
+      update.isMutual = true;
+    }
+
+    await this.matchRepository.update(match.id, update);
+    const updated = await this.matchRepository.findOne({ where: { id: match.id } });
+    return updated ?? match;
   }
 
   private emitMatchFound(match: MatchResponseDto): void {

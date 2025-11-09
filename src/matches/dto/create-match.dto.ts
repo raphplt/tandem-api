@@ -131,5 +131,7 @@ export class CreateMatchDto {
       user1?: string | Date;
       user2?: string | Date;
     };
+    testAccountSlug?: string;
+    isTestAccountMatch?: boolean;
   };
 }

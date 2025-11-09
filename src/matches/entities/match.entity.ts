@@ -131,6 +131,8 @@ export class Match {
     timezoneOffset?: number;
     user1Preferences?: any;
     user2Preferences?: any;
+    testAccountSlug?: string;
+    isTestAccountMatch?: boolean;
   };
 
   @CreateDateColumn()

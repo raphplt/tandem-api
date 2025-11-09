@@ -194,6 +194,8 @@ export class MatchResponseDto {
     timezoneOffset?: number;
     user1Preferences?: any;
     user2Preferences?: any;
+    testAccountSlug?: string;
+    isTestAccountMatch?: boolean;
   };
 
   @ApiProperty({

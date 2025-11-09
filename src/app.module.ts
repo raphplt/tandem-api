@@ -58,12 +58,20 @@ import { RolesGuard } from './auth/roles.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import authConfig from './config/auth.config';
+import featuresConfig from './config/features.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, redisConfig, appConfig, authConfig, r2Config],
+      load: [
+        databaseConfig,
+        redisConfig,
+        appConfig,
+        authConfig,
+        r2Config,
+        featuresConfig,
+      ],
     }),
 
     TypeOrmModule.forRootAsync({

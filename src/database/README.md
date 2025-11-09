@@ -48,6 +48,16 @@ Ce seeder ajoute une liste complète d'intérêts organisés par catégories :
 
 **Total :** ~150+ intérêts
 
+### Test Accounts Seeder (`test-accounts.seeder.ts`)
+
+- Crée une dizaine de comptes **BetterAuth + users + profils + photos** prêts à matcher.
+- Les données couvrent différentes villes françaises avec des profils complets (bio, centres d'intérêt, préférences, photos).
+- **Contrôlé par la variable `FEATURE_TEST_ACCOUNTS`** :
+  1. Activer le flag dans `.env` (`FEATURE_TEST_ACCOUNTS=true`)
+  2. Lancer `npm run seed` (ou `npm run seed:drop`)
+  3. Les comptes restent en base ; repassez le flag à `false` si vous voulez désactiver leur présence côté matchmaking.
+- Les intérêts manquants sont automatiquement reliés au profil via la table de jointure `profile_interests`.
+
 ## 🔧 Ajouter un nouveau seeder
 
 1. Créer un nouveau fichier dans `seeders/` (ex: `users.seeder.ts`)
@@ -98,7 +108,6 @@ Ou utilisez `DATABASE_URL` :
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/database_name
 ```
-
 
 
 

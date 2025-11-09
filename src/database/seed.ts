@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { INTERESTS_SEED_DATA } from './seeders/interests.seeder';
+import { seedTestAccounts } from './seeders/test-accounts.seeder';
 import { Interest } from '../interests/entities/interest.entity';
 import { User } from '../users/entities/user.entity';
 import { Profile } from '../profiles/entities/profile.entity';
@@ -200,6 +201,9 @@ async function main() {
   try {
     // Seed interests
     await seedInterests(dataSource);
+
+    // Seed synthetic test accounts (optional)
+    await seedTestAccounts(dataSource);
 
     console.log('\n🎉 Seeding completed successfully!');
   } catch (error) {

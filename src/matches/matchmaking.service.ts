@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,11 +13,20 @@ import { MatchResponseDto } from './dto/match-response.dto';
 import { CreateMatchDto } from './dto/create-match.dto';
 import { MatchType } from './entities/match.entity';
 import { AvailabilityService } from '../availability/availability.service';
+import {
+  TEST_ACCOUNT_FIXTURES,
+  TestAccountFixture,
+} from '../test-accounts/test-accounts.fixtures';
 
 @Injectable()
 export class MatchmakingService {
   private readonly logger = new Logger(MatchmakingService.name);
   private isProcessing = false;
+  private readonly testAccounts = TEST_ACCOUNT_FIXTURES;
+  private readonly testAccountIds = new Set(
+    TEST_ACCOUNT_FIXTURES.map((fixture) => fixture.userId),
+  );
+  private testAccountCursor = 0;
 
   constructor(
     @InjectRepository(Availability)
@@ -25,6 +35,7 @@ export class MatchmakingService {
     private readonly profileRepository: Repository<Profile>,
     private readonly matchesService: MatchesService,
     private readonly availabilityService: AvailabilityService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Cron(CronExpression.EVERY_30_SECONDS)
@@ -74,6 +85,12 @@ export class MatchmakingService {
 
       const second = this.findPartner(activeCandidates, i + 1, usedUsers);
       if (!second) {
+        const virtualMatch = await this.matchWithTestAccount(first);
+        if (virtualMatch) {
+          matches.push(virtualMatch);
+          usedUsers.add(first.userId);
+          await this.availabilityService.markAsMatched(first.userId);
+        }
         continue;
       }
 
@@ -159,5 +176,99 @@ export class MatchmakingService {
     const start = new Date(date);
     start.setHours(0, 0, 0, 0);
     return start;
+  }
+
+  private get areTestAccountsEnabled(): boolean {
+    return this.configService.get<boolean>(
+      'features.testAccountsEnabled',
+      false,
+    );
+  }
+
+  private pickTestAccount(excludeUserId: string): TestAccountFixture | null {
+    if (!this.testAccounts.length) {
+      return null;
+    }
+
+    for (let i = 0; i < this.testAccounts.length; i++) {
+      const index = (this.testAccountCursor + i) % this.testAccounts.length;
+      const candidate = this.testAccounts[index];
+
+      if (candidate.userId === excludeUserId) {
+        continue;
+      }
+
+      this.testAccountCursor = index + 1;
+      return candidate;
+    }
+
+    return null;
+  }
+
+  private async matchWithTestAccount(
+    availability: Availability,
+  ): Promise<MatchResponseDto | null> {
+    if (
+      !this.areTestAccountsEnabled ||
+      this.testAccountIds.has(availability.userId)
+    ) {
+      return null;
+    }
+
+    const userProfile = await this.profileRepository.findOne({
+      where: { userId: availability.userId, isActive: true, isComplete: true },
+    });
+
+    if (!userProfile) {
+      return null;
+    }
+
+    const testAccount = this.pickTestAccount(availability.userId);
+    if (!testAccount) {
+      return null;
+    }
+
+    const testProfile = await this.profileRepository.findOne({
+      where: { id: testAccount.profileId, isActive: true, isComplete: true },
+    });
+
+    if (!testProfile) {
+      this.logger.warn(
+        `Test profile ${testAccount.profileId} missing, cannot create fallback match`,
+      );
+      return null;
+    }
+
+    const payload: CreateMatchDto = {
+      user1Id: userProfile.userId,
+      user2Id: testAccount.userId,
+      profile1Id: userProfile.id,
+      profile2Id: testAccount.profileId,
+      matchDate: new Date().toISOString(),
+      type: MatchType.DAILY,
+      compatibilityScore: 95,
+      metadata: {
+        matchingAlgorithm: 'queue_pairing_v1',
+        matchingVersion: '1.0.0',
+        testAccountSlug: testAccount.slug,
+        isTestAccountMatch: true,
+      },
+    };
+
+    try {
+      const match = await this.matchesService.create(payload, {
+        skipDailyLimitFor: [testAccount.userId],
+        autoAcceptUserIds: [testAccount.userId],
+      });
+      this.logger.log(
+        `Matched ${availability.userId} with test account ${testAccount.slug}`,
+      );
+      return match;
+    } catch (error) {
+      this.logger.warn(
+        `Unable to match ${availability.userId} with test account ${testAccount.userId}: ${error instanceof Error ? error.message : error}`,
+      );
+      return null;
+    }
   }
 }
