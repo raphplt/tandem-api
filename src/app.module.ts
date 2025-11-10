@@ -101,7 +101,7 @@ import authConfig from './config/auth.config';
           BetterAuthAccount,
         ],
         synchronize: configService.get('database.synchronize'),
-        logging: configService.get('database.logging'),
+        // logging: configService.get('database.logging'),
       }),
       inject: [ConfigService],
     }),

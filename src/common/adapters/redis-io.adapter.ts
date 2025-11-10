@@ -36,7 +36,6 @@ export class RedisIoAdapter extends IoAdapter {
     try {
       await Promise.all([this.pubClient.connect(), this.subClient.connect()]);
       this.adapterConstructor = createAdapter(this.pubClient, this.subClient);
-      this.logger.log('Connected Socket.IO adapter to Redis');
     } catch (error) {
       const err = error as Error;
       this.logger.error(
