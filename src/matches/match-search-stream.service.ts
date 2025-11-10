@@ -56,7 +56,13 @@ export class MatchSearchStreamService {
     );
 
     return merge(initial$, availability$, matches$, heartbeat$).pipe(
-      map((data) => ({ data })),
+      map(
+        (payload) =>
+          ({
+            type: payload.type,
+            data: JSON.stringify(payload),
+          }) as MessageEvent,
+      ),
     );
   }
 

@@ -29,7 +29,16 @@ async function bootstrap() {
   }
 
   app.use(helmet());
-  app.use(compression());
+  app.use(
+    compression({
+      filter: (req, res) => {
+        if (req.headers.accept?.includes('text/event-stream')) {
+          return false;
+        }
+        return compression.filter(req, res);
+      },
+    }),
+  );
 
   const corsOrigin =
     (configService.get<string | string[]>('app.corsOrigin') as
