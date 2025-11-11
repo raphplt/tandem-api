@@ -12,12 +12,12 @@ import {
 import { OnEvent } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import type { Server } from 'socket.io';
-import { MessageStatus } from './entities/message.entity';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
 import { UpdateMessageWsDto } from './dto/update-message-ws.dto';
 import { DeleteMessageWsDto } from './dto/delete-message-ws.dto';
+import { MessageDeliveryAckDto } from './dto/message-delivery-ack.dto';
 import {
   MESSAGE_CREATED_EVENT,
   MESSAGE_DELETED_EVENT,
@@ -46,6 +46,7 @@ export class MessagesGateway
 
   private readonly logger = new Logger(MessagesGateway.name);
   private readonly allowedOrigins: string[];
+  private readonly typingTimeouts = new Map<string, NodeJS.Timeout>();
 
   constructor(
     private readonly messagesService: MessagesService,
@@ -71,10 +72,16 @@ export class MessagesGateway
       return;
     }
 
+    const user = client.data.user;
+    if (user?.id) {
+      client.join(this.getUserRoom(user.id));
+    }
+
     this.logger.debug(`Client connected: ${client.id}`);
   }
 
   handleDisconnect(client: AuthenticatedSocket): void {
+    this.clearTypingTimeoutsForUser(client.data.user?.id);
     this.logger.debug(`Client disconnected: ${client.id}`);
   }
 
@@ -211,6 +218,90 @@ export class MessagesGateway
     }
   }
 
+  @SubscribeMessage('message.delivery.ack')
+  async handleMessageDeliveryAck(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody(new ValidationPipe({ transform: true, whitelist: true }))
+    payload: MessageDeliveryAckDto,
+  ): Promise<{ status: 'ok'; message: MessageResponseDto }> {
+    const user = client.data.user;
+    if (!user) {
+      throw new WsException('Unauthorized');
+    }
+
+    try {
+      const acknowledgedMessage =
+        await this.messagesService.acknowledgeDelivery(
+          payload.messageId,
+          user.id,
+        );
+
+      await client.join(acknowledgedMessage.conversationId);
+
+      return { status: 'ok', message: acknowledgedMessage };
+    } catch (error) {
+      throw this.toWsException(error, 'Unable to acknowledge delivery');
+    }
+  }
+
+  @SubscribeMessage('typing.start')
+  async handleTypingStart(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody('conversationId') conversationId: string,
+  ): Promise<{ status: 'ok'; conversationId: string }> {
+    const user = client.data.user;
+    if (!user) {
+      throw new WsException('Unauthorized');
+    }
+
+    if (!conversationId) {
+      throw new WsException('conversationId is required');
+    }
+
+    try {
+      await this.messagesService.validateConversationAccess(
+        conversationId,
+        user.id,
+      );
+
+      this.emitTypingEvent(conversationId, user.id, true, client);
+      this.scheduleTypingTimeout(conversationId, user.id);
+
+      return { status: 'ok', conversationId };
+    } catch (error) {
+      throw this.toWsException(error, 'Unable to start typing indicator');
+    }
+  }
+
+  @SubscribeMessage('typing.stop')
+  async handleTypingStop(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody('conversationId') conversationId: string,
+  ): Promise<{ status: 'ok'; conversationId: string }> {
+    const user = client.data.user;
+    if (!user) {
+      throw new WsException('Unauthorized');
+    }
+
+    if (!conversationId) {
+      throw new WsException('conversationId is required');
+    }
+
+    try {
+      await this.messagesService.validateConversationAccess(
+        conversationId,
+        user.id,
+      );
+
+      this.clearTypingTimeout(conversationId, user.id);
+      this.emitTypingEvent(conversationId, user.id, false, client);
+
+      return { status: 'ok', conversationId };
+    } catch (error) {
+      throw this.toWsException(error, 'Unable to stop typing indicator');
+    }
+  }
+
   @SubscribeMessage('message.read')
   async handleMessageRead(
     @ConnectedSocket() client: AuthenticatedSocket,
@@ -244,16 +335,7 @@ export class MessagesGateway
     }
 
     try {
-      if (event.recipients.some((id) => id !== event.message.authorId)) {
-        await this.messagesService.markAsDelivered(event.message.id);
-      }
-
-      const messageToEmit: MessageResponseDto = {
-        ...event.message,
-        status: MessageStatus.DELIVERED,
-      };
-
-      this.server.to(event.conversationId).emit('message.new', messageToEmit);
+      this.server.to(event.conversationId).emit('message.new', event.message);
     } catch (error) {
       const err = error as Error;
       this.logger.error(
@@ -320,5 +402,75 @@ export class MessagesGateway
 
     this.logger.warn(fallback);
     return new WsException(fallback);
+  }
+
+  private scheduleTypingTimeout(conversationId: string, userId: string): void {
+    const key = this.getTypingTimeoutKey(conversationId, userId);
+    const existingTimeout = this.typingTimeouts.get(key);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    const timeout = setTimeout(() => {
+      this.typingTimeouts.delete(key);
+      this.emitTypingEvent(conversationId, userId, false);
+    }, 5000);
+
+    this.typingTimeouts.set(key, timeout);
+  }
+
+  private clearTypingTimeout(conversationId: string, userId: string): void {
+    const key = this.getTypingTimeoutKey(conversationId, userId);
+    const existingTimeout = this.typingTimeouts.get(key);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      this.typingTimeouts.delete(key);
+    }
+  }
+
+  private clearTypingTimeoutsForUser(userId?: string): void {
+    if (!userId) {
+      return;
+    }
+
+    for (const [key, timeout] of this.typingTimeouts.entries()) {
+      const [conversationId, keyUserId] = key.split(':');
+      if (keyUserId === userId) {
+        clearTimeout(timeout);
+        this.typingTimeouts.delete(key);
+        this.emitTypingEvent(conversationId, userId, false);
+      }
+    }
+  }
+
+  private getTypingTimeoutKey(conversationId: string, userId: string): string {
+    return `${conversationId}:${userId}`;
+  }
+
+  private emitTypingEvent(
+    conversationId: string,
+    userId: string,
+    isTyping: boolean,
+    excludeClient?: AuthenticatedSocket,
+  ): void {
+    const payload = { conversationId, userId, isTyping };
+
+    if (excludeClient) {
+      excludeClient.to(conversationId).emit('user.typing', payload);
+      return;
+    }
+
+    if (!this.server) {
+      return;
+    }
+
+    this.server
+      .to(conversationId)
+      .except(this.getUserRoom(userId))
+      .emit('user.typing', payload);
+  }
+
+  private getUserRoom(userId: string): string {
+    return `user:${userId}`;
   }
 }

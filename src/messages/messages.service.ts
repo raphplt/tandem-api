@@ -249,11 +249,31 @@ export class MessagesService {
     return response;
   }
 
-  async markAsDelivered(id: string): Promise<void> {
-    const message = await this.messageRepository.findOne({ where: { id } });
+  async acknowledgeDelivery(
+    messageId: string,
+    userId: string,
+  ): Promise<MessageResponseDto> {
+    const message = await this.messageRepository.findOne({
+      where: { id: messageId },
+    });
 
     if (!message) {
-      return;
+      throw new NotFoundException(`Message with ID ${messageId} not found`);
+    }
+
+    await this.validateConversationAccess(message.conversationId, userId);
+
+    if (message.authorId === userId) {
+      throw new ForbiddenException(
+        'You cannot acknowledge delivery for your own message',
+      );
+    }
+
+    if (
+      message.status === MessageStatus.DELIVERED ||
+      message.status === MessageStatus.READ
+    ) {
+      return this.mapToResponseDto(message);
     }
 
     const metadata = {
@@ -262,10 +282,22 @@ export class MessagesService {
       lastDeliveryAttempt: new Date(),
     };
 
-    await this.messageRepository.update(id, {
+    await this.messageRepository.update(messageId, {
       status: MessageStatus.DELIVERED,
       metadata,
     });
+
+    const updatedMessage = await this.messageRepository.findOne({
+      where: { id: messageId },
+    });
+
+    const response = this.mapToResponseDto(updatedMessage!);
+    const eventPayload: MessageUpdatedEvent = {
+      message: response,
+    };
+    this.eventEmitter.emit(MESSAGE_UPDATED_EVENT, eventPayload);
+
+    return response;
   }
 
   async markAsRead(id: string): Promise<void> {

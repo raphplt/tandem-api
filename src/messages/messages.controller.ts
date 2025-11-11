@@ -78,4 +78,9 @@ export class MessagesController {
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.messagesService.delete(id, user.id);
   }
+
+  @Post(':id/acknowledge')
+  acknowledgeDelivery(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.messagesService.acknowledgeDelivery(id, user.id);
+  }
 }
